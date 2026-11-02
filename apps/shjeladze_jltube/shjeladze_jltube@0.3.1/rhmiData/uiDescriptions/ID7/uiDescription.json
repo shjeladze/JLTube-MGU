@@ -87,7 +87,7 @@
           "rows": [
             {
               "Text": {
-                "value": "YouTube portal (browser unavailable)",
+                "value": "Search YouTube",
                 "type": "Text"
               }
             }
@@ -176,6 +176,28 @@
             {
               "Text": {
                 "value": "Stop",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "27": {
+          "type": "button",
+          "name": "results",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "",
                 "type": "Text"
               }
             }

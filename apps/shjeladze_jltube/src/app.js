@@ -13,6 +13,7 @@ class JLTube extends OnlineApp {
     constructor() {
         super(); this.visible = false; this.busy = false; this.dead = false;
         this.allowed = false; this.typing = false; this.keyboard = new Keyboard();
+        this.results = []; this.resultKey = '';
         this.gpu = new Video('shjeladze_jltube');
         this.on('initialized', () => this.setup().catch((err) => log.error(err.message)));
         this.on('entryPointExecute', (uuid) => {
@@ -55,7 +56,12 @@ class JLTube extends OnlineApp {
         const bind = (name, fn) => actions.bind(rhmi.getByName(name), name, fn);
         rhmi.on('userEvent', (event) => actions.raw(event));
         bind('google', () => this.open('web', 'https://www.google.com/'));
-        bind('youtube', () => this.open('web', 'https://www.youtube.com/'));
+        bind('youtube', () => this.beginUrl('search'));
+        bind('results', (event) => {
+            if (!this.visible || !this.allowed || this.typing) return;
+            const entry = this.results[Number(event && event.row)];
+            if (entry) this.open('youtube', entry.url);
+        });
         bind('enterWeb', () => this.beginUrl('web'));
         bind('enterYouTube', () => this.beginUrl('youtube'));
         bind('letters', (event) => {
@@ -97,7 +103,8 @@ class JLTube extends OnlineApp {
     }
     open(mode, url) {
         if (!this.visible || !this.allowed) return;
-        request({op: 'open', mode: mode, url: url}).then((r) => this.text(r.error || 'Starting…'))
+        const message = mode === 'search' ? {op: 'search', query: url} : {op: 'open', mode: mode, url: url};
+        request(message).then((r) => this.text(r.error || (mode === 'search' ? 'Searching YouTube…' : 'Starting…')))
             .catch((err) => this.text(err.message));
     }
     beginUrl(mode) {
@@ -107,7 +114,7 @@ class JLTube extends OnlineApp {
     }
     updateAvailability(allowed) {
         this.allowed = allowed === true;
-        if (!this.allowed) { this.typing = false; this.keyboard.clear(); }
+        if (!this.allowed) { this.typing = false; this.keyboard.clear(); this.results = []; this.resultKey = ''; }
         this.renderKeyboard();
     }
     renderKeyboard() {
@@ -122,11 +129,12 @@ class JLTube extends OnlineApp {
         ['urlText', 'letters', 'nextKeys', 'erase', 'submitUrl', 'cancelUrl'].forEach((name) => {
             pending.push(Promise.resolve(rhmi.getByName(name).setProperty('Visible', this.typing && this.allowed ? 1 : 0, 'UInt')));
         });
+        pending.push(Promise.resolve(rhmi.getByName('results').setProperty('Visible', this.allowed && !this.typing && this.results.length ? 1 : 0, 'UInt')));
         if (this.typing && this.allowed) {
             pending.push(Promise.resolve(rhmi.getByName('urlText').setValue(0, 'Text', this.keyboard.value, 'Text')));
             const letters = rhmi.getByName('letters'), keys = this.keyboard.keys();
             pending.push(Promise.resolve(letters.setRowCount(keys.length)).then(() => Promise.all(keys.map((key, row) =>
-                letters.setValue(row, 'Text', key, 'Text')))));
+                letters.setValue(row, 'Text', key === ' ' ? 'Space' : key, 'Text')))));
         }
         Promise.all(pending).then(() => rhmi.flush()).catch((err) => log.warn(err.message));
     }
@@ -138,6 +146,18 @@ class JLTube extends OnlineApp {
             if (!this.visible || this.dead) return;
             if (this.allowed !== (r.allowed === true)) this.updateAvailability(r.allowed === true);
             this.text(r.error || r.reason || r.state || 'Player unavailable — locked');
+            const results = Array.isArray(r.results) ? r.results.slice(0, 10) : [];
+            const key = JSON.stringify(results);
+            if (this.allowed && key !== this.resultKey) {
+                this.results = results; this.resultKey = key;
+                const component = this.rhmiApplication.getByName('results');
+                if (results.length) {
+                    Promise.resolve(component.setRowCount(results.length)).then(() => Promise.all(results.map((item, row) =>
+                        component.setValue(row, 'Text', String(item.title).slice(0, 160), 'Text'))))
+                        .then(() => this.rhmiApplication.flush()).catch((err) => log.warn(err.message));
+                }
+                this.renderKeyboard();
+            }
             this.gpu.show(!this.typing && r.allowed === true && r.state === 'playing');
         } catch (err) { this.gpu.close(); this.updateAvailability(false); this.text('Player unavailable — locked'); }
         finally { this.busy = false; }

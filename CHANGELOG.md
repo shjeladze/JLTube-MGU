@@ -2,6 +2,8 @@
 
 ## 0.3.1
 
+* Add native YouTube search and a selectable results list using bounded yt-dlp metadata output. Construct playback URLs from validated video IDs; discard results if parked authorization is lost. YouTube search does not require a general browser engine.
+
 * Add parked-only RHMI URL entry with separate website and YouTube-link modes; clear input and disable actions when authorization is lost.
 * Add optional native read-only speed/selector reader. Track availability generations, reject delayed getters, expire speed and selector independently, and use private-pipe challenges with conservative round-trip accounting. No guessed P/N or demo fallback.
 * Add a read-only SSH compatibility report that excludes VIN, keys, tokens and logs and retains strict host-key verification.

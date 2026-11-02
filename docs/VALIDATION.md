@@ -6,7 +6,7 @@ This record distinguishes offline evidence from target behavior. No real-car tes
 | --- | --- |
 | Repository starting state | `main` c9b8299: README only; no implementation to preserve |
 | Current public formats | Reviewed mgu-store, idrive7-apps, IterioDev pinned commits in dependencies.lock.json |
-| Windows offline self-test | 19 Python tests: 16 passed, 3 Linux-only tests skipped; JavaScript keyboard/bridge-state checks, manifests and Node syntax passed |
+| Windows offline self-test | 22 Python tests: 19 passed, 3 Linux-only tests skipped; JavaScript keyboard/action/bridge-state checks, manifests and Node syntax passed |
 | Reproducibility | Two builds compared byte-for-byte by automated test |
 | Package integrity | Catalog size/SHA-256 and every tool file hash checked by automated test |
 | SDK exclusion | Source-package allowlist; no node_modules/oap-sdk, firmware, donor bundle or compiled app.js |

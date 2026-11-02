@@ -30,6 +30,10 @@ keyboard.backspace(); assert.strictEqual(keyboard.value, 'https://');
 keyboard.text('x'.repeat(2048)); keyboard.append(0); assert.strictEqual(keyboard.value.length, 2048);
 assert.throws(() => keyboard.text('https://example.com/\n'), /Invalid/);
 keyboard.clear(); assert.strictEqual(keyboard.value, 'https://');
+keyboard.begin('search'); keyboard.text('live music');
+assert.strictEqual(keyboard.value, 'live music');
+assert.throws(() => keyboard.text('x'.repeat(257)), /Invalid/);
+keyboard.clear();
 
 let now = 10;
 const state = new State(() => now);

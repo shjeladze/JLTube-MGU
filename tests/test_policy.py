@@ -57,6 +57,18 @@ class PolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             p.checked_binaries({})
 
+    def test_search_metadata_cannot_supply_external_or_malformed_urls(self):
+        value = {'entries': [{'id': 'abcdefghijk', 'title': 'Music\x00\n title', 'url': 'https://evil.test/'},
+                             {'id': 'abcdefghijk', 'title': 'duplicate'}, {'id': '../bad', 'title': 'bad'},
+                             {'id': '12345678901', 'title': 'x' * 1000}, None]}
+        rows = p.search_entries(value)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['url'], 'https://www.youtube.com/watch?v=abcdefghijk')
+        self.assertNotIn('\x00', rows[0]['title'])
+        self.assertEqual(len(rows[1]['title']), 160)
+        with self.assertRaises(ValueError):
+            p.search_entries({'entries': 'invalid'})
+
     def test_package_structure(self):
         with tempfile.TemporaryDirectory() as tmp:
             catalog = packager.build(tmp)
@@ -236,6 +248,39 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(broker.process)
         self.assertIsNone(broker.frames)
         self.assertEqual(len(killed), 1)
+
+    async def test_search_is_parked_only_and_rejects_control_characters(self):
+        broker = self.broker(False)
+        with self.assertRaisesRegex(ValueError, 'Locked'):
+            await broker.dispatch({'op': 'search', 'query': 'music'}, 12250)
+        broker = self.broker()
+        for query in ['', ' ', 'x' * 257, 'hello\nworld']:
+            with self.subTest(query=query), self.assertRaises(ValueError):
+                await broker.dispatch({'op': 'search', 'query': query}, 12250)
+
+    async def test_search_pipeline_discards_results_if_vehicle_moves(self):
+        for moving in [False, True]:
+            broker = self.broker()
+            class Process:
+                def __init__(self):
+                    self.stdout = asyncio.StreamReader()
+                    self.stdout.feed_data(json.dumps({'entries': [{'id': 'abcdefghijk', 'title': 'Music'}]}).encode())
+                    self.stdout.feed_eof()
+                async def wait(self):
+                    if moving:
+                        broker.sample_reader = lambda: sample(speed_mps=1)
+                    return 0
+            commands = []
+            async def spawn(*argv):
+                commands.append(argv)
+                broker.process = Process()
+                return broker.process
+            async def kill(proc): pass
+            broker.spawn, broker.kill_process = spawn, kill
+            await broker.search('music', {'yt-dlp': '/yt-dlp', 'qjs': '/qjs'})
+            self.assertEqual(commands[0][-1], 'ytsearch10:music')
+            self.assertEqual(len(broker.search_results), 0 if moving else 1)
+            self.assertIsNone(broker.process)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux process-group cleanup test')
     async def test_real_child_process_group_is_terminated(self):

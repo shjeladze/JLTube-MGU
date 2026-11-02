@@ -11,6 +11,7 @@ import ipaddress
 import json
 import math
 import os
+import re
 from pathlib import Path
 import signal
 import secrets
@@ -87,6 +88,25 @@ def validated_url(value, mode):
     elif mode != 'web':
         raise ValueError('Unsupported mode')
     return value
+
+
+def search_entries(value):
+    if not isinstance(value, dict) or not isinstance(value.get('entries'), list):
+        raise ValueError('Invalid YouTube search response')
+    entries, seen = [], set()
+    for item in value['entries'][:10]:
+        if not isinstance(item, dict):
+            continue
+        identity = item.get('id')
+        if not isinstance(identity, str) or not re.fullmatch(r'[A-Za-z0-9_-]{11}', identity) or identity in seen:
+            continue
+        title = item.get('title')
+        if not isinstance(title, str):
+            title = 'YouTube video'
+        title = ''.join(c for c in title if c.isprintable())[:160]
+        entries.append({'id': identity, 'title': title, 'url': 'https://www.youtube.com/watch?v=' + identity})
+        seen.add(identity)
+    return entries
 
 
 class FrameFile:
@@ -166,6 +186,7 @@ class Broker:
         self.last_client = 0
         self.dns_updated = 0
         self.control_lock = asyncio.Lock()
+        self.search_results = []
         self.bridge_sample = None
         self.bridge_process = None
         if config.get('vehicle_bridge', {}).get('enabled') is True:
@@ -237,9 +258,11 @@ class Broker:
         return {'version': VERSION, 'allowed': allowed, 'state': self.state if allowed else 'locked',
                 'reason': self.reason if allowed else 'Locked: no fresh validated Park + zero-speed signal',
                 'browser': 'unavailable', 'audio': 'unvalidated; disabled',
+                'results': self.search_results if allowed else [],
                 'video': '/dev/shm/mgu-video-jltube' if allowed and self.state == 'playing' else None}
 
     async def stop(self, reason='Stopped'):
+        self.search_results = []
         # Clear the physical frame before any asynchronous process cleanup can stall.
         if self.frames:
             self.frames.black()
@@ -343,6 +366,31 @@ class Broker:
                 proc, self.process = self.process, None
                 await self.kill_process(proc)
 
+    async def search(self, query, binaries):
+        try:
+            self.state, self.reason = 'searching', 'Searching YouTube'
+            proc = await self.spawn(binaries['yt-dlp'], '--ignore-config', '--flat-playlist',
+                                    '--dump-single-json', '--skip-download', '--playlist-end', '10',
+                                    '--no-cache-dir', '--no-progress', '--no-warnings',
+                                    '--js-runtimes', 'quickjs:' + binaries['qjs'], '--', 'ytsearch10:' + query)
+            raw = await asyncio.wait_for(bounded_read(proc.stdout, 128 * 1024), 30)
+            if await asyncio.wait_for(proc.wait(), 2) != 0:
+                raise ValueError('YouTube search unavailable; check connectivity or resolver version')
+            if not self.allowed():
+                raise ValueError('Vehicle locked during search')
+            self.search_results = search_entries(json.loads(raw))
+            self.reason = 'Select a video' if self.search_results else 'No videos found'
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.search_results = []
+            self.reason = str(exc) if isinstance(exc, ValueError) and not isinstance(exc, json.JSONDecodeError) else 'YouTube search failed'
+        finally:
+            self.state = 'idle'
+            if self.process:
+                proc, self.process = self.process, None
+                await self.kill_process(proc)
+
     async def dispatch(self, message, uid):
         if not isinstance(message, dict):
             raise ValueError('Expected JSON object')
@@ -356,12 +404,19 @@ class Broker:
         if op == 'stop':
             await self.stop()
             return self.status()
-        if op != 'open':
+        if op not in ('open', 'search'):
             raise ValueError('Unsupported operation')
         if not self.allowed():
             raise ValueError('Locked: parked-state verification required')
-        mode = message.get('mode')
-        url = validated_url(message.get('url'), mode)
+        mode = 'search' if op == 'search' else message.get('mode')
+        if mode == 'search':
+            query = message.get('query')
+            if (not isinstance(query, str) or not 1 <= len(query.strip()) <= 256
+                    or any(not c.isprintable() for c in query)):
+                raise ValueError('Enter a YouTube search of 1-256 printable characters')
+            url = query.strip()
+        else:
+            url = validated_url(message.get('url'), mode)
         if mode == 'web':
             raise ValueError('Full browser engine is not validated or included in this development build')
         # Hashing large runtime files must never block the watchdog while media is running.
@@ -372,7 +427,7 @@ class Broker:
         if not self.allowed():
             raise ValueError('Locked during runtime verification')
         self.last_client = self.clock()
-        self.task = asyncio.create_task(self.play(url, binaries))
+        self.task = asyncio.create_task(self.search(url, binaries) if mode == 'search' else self.play(url, binaries))
         return {'ok': True}
 
     async def watchdog(self):

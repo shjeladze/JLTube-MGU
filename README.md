@@ -14,6 +14,7 @@ No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binarie
 * An in-app URL keyboard that closes/clears when parked-state authorization is lost. Separate website and YouTube-link modes; Stop stays available.
 * An optional root-owned native SOME/IP reader with independent speed/selector expiry, availability-generation checks and challenge/response freshness over private pipes. It stays disabled until its firmware-specific getter semantics are verified.
 * A read-only compatibility-report collector over explicitly named, verified SSH; no VIN, keys or tokens are read.
+* Native **Search YouTube**, ten selectable video results and direct playback requests, independent of a general browser. Search and selection use the same parked-only broker. Live YouTube access remains subject to network/extractor restrictions and target validation.
 
 ## Deliberately unresolved
 
@@ -22,7 +23,7 @@ No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binarie
 | Area | Current status |
 | --- | --- |
 | Vehicle safety adapter | Optional read-only native bridge implemented; disabled and untested on MGU. Requires the unit's local binding/definitions and proof of fresh remote getter semantics. Default locked. See [bridge validation](docs/VEHICLE_BRIDGE.md). |
-| YouTube | Resolver/decoder pipeline implemented, but no compatible Linux x86-64 runtime binaries built, hash-selected or tested on MGU. |
+| YouTube | Native search, result selection and resolver/decoder pipeline implemented; portable runtime build is automated. Real-MGU playback and audio remain unvalidated. |
 | Google/general URLs | Portal buttons and URL validation exist. **Full browser engine is not implemented or bundled.** Web requests return a clear unavailable message. |
 | URL entry | RHMI character-list keyboard and optional saved `data/portal.json` implemented; actual controller/touch, focus and lockout behavior need HMI validation. |
 | Audio | Explicitly disabled (`-an`). BMW media-session ownership, audio focus, PCM routing, mixer format, resampling, suspend and mute behavior remain unknown. |
@@ -111,7 +112,9 @@ Once the adapter and runtimes have been validated, place `portal.json` in the in
 
 The **Open saved URL** button requests it. **Enter website URL** and **Enter YouTube video URL** open the in-app character-list keyboard while the broker reports a valid parked state. Select characters with the iDrive controller/touch, use **Next characters**, **Delete character**, and **Open**. Loss of authorization clears/closes entry; submission is checked again by the broker. This HMI behavior still requires target validation.
 
-`mode: "web"` with a user-entered HTTPS URL is accepted by the portal interface but currently returns **browser unavailable**. Google and YouTube portal buttons likewise explain that a browser backend is missing. The Stop button is available regardless of parked state. Never place credentials in URLs. Only one video plays; no playlist, audio, download UI or background playback is offered.
+**Search YouTube** uses the same character keyboard for a plain-text search, including spaces. Select a returned video to request playback; result URLs are built only from valid YouTube video IDs. No general browser is used for this path. Results are cleared on lockout or stop. Live search/extraction has not been verified on a car and can be refused by YouTube or the current network.
+
+`mode: "web"` with a user-entered HTTPS URL is accepted by the portal interface but currently returns **browser unavailable**. The Google button likewise reports that a full browser backend is missing. The Stop button is available regardless of parked state. Never place credentials in URLs. Only one video plays; no playlist, audio, download UI or background playback is offered.
 
 ## Catalog/Releases publishing
 

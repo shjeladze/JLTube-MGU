@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'native/runtime/**'
+      - 'native/jltube-player/**'
+      - 'apps/shjeladze_jltube/**'
+      - 'tools/package.py'
       - '.github/workflows/runtime.yml'
   workflow_dispatch:
 permissions:
@@ -18,6 +21,10 @@ jobs:
           persist-credentials: false
       - name: Verify source and policy
         run: python3 tools/self_test.py
+      - name: Install host-only fixture encoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Build pinned static runtimes
         run: python3 native/runtime/build.py
       - name: Pack app and native tool with media runtimes

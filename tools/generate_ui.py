@@ -10,11 +10,11 @@ tree = app / manifest['tree']
 specs = [('10', 'title', 'title', 'JLTube — development'),
          ('20', 'label', 'status', 'Locked: vehicle adapter not validated'),
          ('21', 'button', 'google', 'Google (browser unavailable)'),
-         ('22', 'button', 'youtube', 'YouTube portal (browser unavailable)'),
+         ('22', 'button', 'youtube', 'Search YouTube'),
          ('23', 'button', 'custom', 'Open saved URL'),
          ('25', 'button', 'enterWeb', 'Enter website URL'),
          ('26', 'button', 'enterYouTube', 'Enter YouTube video URL'),
-         ('24', 'button', 'stop', 'Stop'),
+         ('24', 'button', 'stop', 'Stop'), ('27', 'button', 'results', ''),
          ('30', 'label', 'urlText', ''), ('31', 'button', 'letters', 'a'),
          ('32', 'button', 'nextKeys', 'Next characters'), ('33', 'button', 'erase', 'Delete character'),
          ('34', 'button', 'submitUrl', 'Open'), ('35', 'button', 'cancelUrl', 'Cancel')]
@@ -25,7 +25,7 @@ titlebar = ET.SubElement(container, 'layoutGroup', id='102', name='Titlebar')
 listing = ET.SubElement(container, 'layoutGroup', id='103', name='List')
 ET.SubElement(listing, 'property', id='3', value='1')
 for identity, kind, name, text in specs:
-    hidden = int(identity) >= 30
+    hidden = int(identity) >= 30 or name == 'results'
     props = {'Visible': {'value': 0 if hidden else 1, 'type': 'UInt'},
              'Focusable': {'value': 3 if kind == 'button' and name == 'stop' else 0, 'type': 'UInt'}}
     if hidden and kind == 'button':
