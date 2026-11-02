@@ -1,0 +1,8 @@
+{
+  "schema": 1, "id": "shjeladze_inspector", "version": "0.2.0",
+  "tree": "shjeladze_inspector@0.2.0",
+  "modules": ["src/app.js", "src/client.js", "src/actions.js"],
+  "sdk": ["oap-sdk/src/core/OnlineApp.js", "oap-sdk/src/logging/logging"],
+  "mguHmi": ["ID7", "ID8"],
+  "requires": {"mgu-inspector": "0.2.0"}
+}

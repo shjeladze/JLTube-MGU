@@ -1,0 +1,39 @@
+{
+  "name": "shjeladze_inspector",
+  "version": "0.2.0",
+  "description": "Private paired read-only diagnostics",
+  "private": false,
+  "main": "javascript/runner.js",
+  "oapAppSettings": {
+    "maxDiskUsage": 2097152,
+    "cpuLimit": 30,
+    "memoryThresholdKB": 65536,
+    "priority": "PRIO_MEDIUM",
+    "visibility": "FOREGROUND",
+    "latencyClass": "FOREGROUND",
+    "loggingId": "MGDI",
+    "userLoginRequired": false,
+    "backgroundPriority": 150,
+    "someipManifest": "manifest.json"
+  },
+  "files": [
+    "config",
+    "rhmiData",
+    "package.json",
+    "permissions.json",
+    "javascript",
+    "manifest.json",
+    "LICENSES.txt"
+  ],
+  "engines": {
+    "node": ">=8.7.0"
+  },
+  "author": "shjeladze",
+  "license": "GPL-3.0-or-later",
+  "mguLocalOnly": true,
+  "mguHmi": [
+    "ID7",
+    "ID8"
+  ],
+  "mguInternet": false
+}

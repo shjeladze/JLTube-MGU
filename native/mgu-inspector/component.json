@@ -1,9 +1,12 @@
 {
-  "id": "mgu-inspector", "kind": "tool", "version": "0.1.0",
-  "title": "MGU Inspector (read-only development)",
-  "description": "On-demand platform inventory over an existing verified SSH connection; no remote shell endpoint or vehicle writes",
+  "id": "mgu-inspector", "kind": "tool", "version": "0.2.0",
+  "title": "MGU Inspector paired agent (development)",
+  "description": "One-time-code inventory API on loopback through an owner's private Tailscale connection; no SSH or vehicle writes",
   "mguHmi": ["ID7", "ID8"], "optional": true, "uninstallable": true,
-  "requires": {"mgu-python": "1.0.2"},
-  "files": [{"path": "inspector.py", "from": "inspector.py", "mode": "0644"}],
-  "units": [], "enable": [], "restart": [], "internet": false
+  "requires": {"mgu-python": "1.0.2", "mgu-deploy": "0.7.0", "iteriodev-tailscale": "1.104.5"},
+  "files": [{"path": "inspector.py", "from": "inspector.py", "mode": "0644"},
+            {"path": "agent.py", "from": "agent.py", "mode": "0644"}],
+  "units": [{"name": "mgu-inspector.service", "from": "mgu-inspector.service"}],
+  "enable": [{"unit": "mgu-inspector.service", "target": "multi-user.target"}],
+  "restart": ["mgu-inspector.service"], "internet": false
 }

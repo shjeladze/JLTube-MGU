@@ -109,7 +109,7 @@ class InspectorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 client.request([sys.executable, '-c', program])
 
-    def test_reproducible_kit_hashes_no_service_or_network(self):
+    def test_reproducible_kit_hashes_and_restricted_service(self):
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
             c = packager.build(a)
             packager.build(b)
@@ -121,11 +121,19 @@ class InspectorTests(unittest.TestCase):
             with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
                 manifest = json.load(archive.extractfile('component.json'))
                 self.assertFalse(manifest['internet'])
-                self.assertEqual(manifest['units'], [])
+                self.assertEqual(manifest['units'], [{'name': 'mgu-inspector.service'}])
+                service = archive.extractfile('units/mgu-inspector.service').read().decode()
+                self.assertIn('ProtectSystem=strict', service)
+                self.assertIn('NoNewPrivileges=true', service)
                 for item in manifest['files']:
                     content = archive.extractfile('files/' + item['path']).read()
                     self.assertEqual(packager.sha(content), item['sha256'])
                     self.assertEqual(archive.getmember('files/' + item['path']).mode, int(item['mode'], 8))
+            self.assertEqual(c['components'][1]['build'], 'unit')
+            app_artifact = c['components'][1]['artifact']
+            app_data = (Path(a) / app_artifact['name']).read_bytes()
+            self.assertEqual(packager.sha(app_data), app_artifact['sha256'])
+            self.assertEqual(app_data, (Path(b) / app_artifact['name']).read_bytes())
 
 
 if __name__ == '__main__':

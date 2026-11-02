@@ -7,7 +7,7 @@ import re
 import subprocess
 import threading
 
-OPERATIONS = ('summary', 'platform', 'graphics', 'browser', 'audio', 'safety', 'report')
+OPERATIONS = ('summary', 'platform', 'graphics', 'browser', 'audio', 'network', 'safety', 'report')
 LIMIT = 128 * 1024
 
 

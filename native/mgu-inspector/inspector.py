@@ -8,8 +8,8 @@ import platform
 import stat
 import sys
 
-VERSION = '0.1.0'
-OPERATIONS = ('summary', 'platform', 'graphics', 'browser', 'audio', 'safety', 'report')
+VERSION = '0.2.0'
+OPERATIONS = ('summary', 'platform', 'graphics', 'browser', 'audio', 'network', 'safety', 'report')
 MAX_FILE = 16384
 
 
@@ -101,6 +101,26 @@ class Inventory:
                 'bridgeDefinitionsPresent': self.exists('/var/opt/jltube-player/vehicle/someipInterfaces'),
                 'note': 'No signal values, BMW definitions, SDK, configuration or credentials are read. Presence is not validation.'}
 
+    def network(self):
+        interfaces = []
+        try:
+            paths = sorted(self.path('/sys/class/net').iterdir())[:32]
+        except OSError:
+            paths = []
+        for path in paths:
+            name = path.name
+            if not name or len(name) > 15 or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-' for c in name):
+                continue
+            base = '/sys/class/net/' + name
+            state = (self.text(base + '/operstate') or '').strip()
+            interfaces.append({'name': name, 'wireless': self.exists(base + '/wireless'),
+                               'state': state if state in ('up', 'down', 'unknown', 'dormant', 'lowerlayerdown', 'notpresent', 'testing') else 'unknown'})
+        return {'interfaces': interfaces,
+                'uplinkLeasePresent': self.exists('/run/mgu-uplink/lease.json'),
+                'tailscaleInstalled': self.exists('/var/opt/iteriodev-tailscale/current/ts'),
+                'wifiScanningAttempted': False, 'networkChanges': False,
+                'note': 'No SSIDs, passwords, IP/MAC addresses, routes, packet captures or vehicle subnet scans are collected. Wi-Fi alone grants no ECU access.'}
+
     def summary(self):
         p = self.platform()
         return {'hmi': p['hmi'], 'system': p['system'], 'architecture': p['architecture'],
@@ -110,7 +130,7 @@ class Inventory:
     def collect(self, operation):
         if operation not in OPERATIONS:
             raise ValueError('Unsupported operation')
-        names = ('summary', 'platform', 'graphics', 'browser', 'audio', 'safety') if operation == 'report' else (operation,)
+        names = ('summary', 'platform', 'graphics', 'browser', 'audio', 'network', 'safety') if operation == 'report' else (operation,)
         return {'schema': 1, 'tool': 'mgu-inspector', 'version': VERSION, 'operation': operation,
                 'readOnly': True, 'vehicleAccess': False, 'networkListener': False,
                 'results': {name: getattr(self, name)() for name in names}}

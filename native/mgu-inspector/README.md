@@ -1,39 +1,43 @@
-# MGU Inspector 0.1.0 — read-only development tool
+# MGU Inspector 0.2.0 — private pairing, no SSH
 
-An installable Store **tool**, not a tile in the BMW Apps menu. It provides fixed inventory operations over the owner's existing SSH connection. It has no daemon, listening port, internet permission, startup job, downloaded code, shell-command API or vehicle writes. Installation/removal uses the existing Store/deploy framework. No BMW SDK is distributed.
+Development source app + native tool for ID7/ID8. This version adds an Apps-menu pairing UI, loopback diagnostic service, no-SSH laptop client and Wi-Fi/network capability inventory. It does not provide arbitrary command execution, app installation, ECU coding or a universal browser/audio backend.
 
-## What it can tell us
+## Connection and permissions
 
-`summary`, `platform`, `graphics`, `browser`, `audio`, `safety`, or the combined `report`. These report known OS release fields, CPU/kernel/libc/Python, ID7/ID8 manager presence, selected installed component versions, fixed graphics socket/device paths, candidate browser paths, namespace sysctl values, and ALSA card/PCM inventory. It does not open audio devices, request media focus, connect to vehicle interfaces, change files or attempt playback. Unknowns stay unknown; a detected path never proves a working backend.
+`Inspector OAP tile → private Unix socket → root diagnostic service ← loopback:5891 ← existing Tailscale private network ← laptop client`
 
-No VIN, hostname, IP/MAC, keys, cookies, account credentials, general environment, process list, journal, BMW SDK/definitions or arbitrary files are collected. Reports are data, not instructions. Fixed hardware/release strings should still be reviewed before sharing. No report is uploaded automatically.
+The service listens only on 127.0.0.1, never on the Wi-Fi interface or all interfaces. The separately installed upstream Tailscale tool proxies tailnet traffic to loopback. Both the car and laptop must already be logged into the same owner-controlled tailnet. Configure its ACL/grants to allow only your laptop/user to the car TCP port 5891; do not enable public Funnel, router port forwarding, subnet routing or expose a car management port to the internet. No network policy/account changes are made by this package.
 
-## Installation and connection
+The laptop checks its installed Tailscale status for a Running backend and the exact online peer IPv4 address before sending each request. It accepts only literal tailnet IPv4 addresses in 100.64.0.0/10, ignores HTTP proxy environment variables and refuses redirects. HTTP is carried inside Tailscale's encrypted private connection; this service itself does not implement TLS. Local root, the local OS/network route, the installed Tailscale software and the owner's tailnet are trusted. A private network is not permission to bypass pairing.
 
-Prerequisites: compatible ID7/ID8 MGU with custom-tool installation access, Store/deploy, mgu-python >=1.0.2, and an owner-controlled SSH connection with a verified host key. This tool neither unlocks stock vehicles nor sets up SSH. A read-only report cannot make every application compatible.
+Only the exact installed shjeladze_inspector app UID, read from the root deploy registry, can use the private Unix pairing controls. Missing/ambiguous/stale registry data locks access. The app's Create pairing code action revokes prior access and generates a random 12-digit code for 120 seconds. Five failed attempts invalidate the code. A code can be used once; the resulting 256-bit session token lives only in memory and expires absolutely after 15 minutes. Disconnect/revoke works from the app or laptop. Restart removes all sessions. The app does not log the code. Token/code values never enter diagnostic reports or disk storage.
 
-1. Build with `python tools/package_inspector.py --out dist/inspector`, or use the generated development kit/Catalog. Put `catalog.json` and the `.tgz` together in a Store USB source folder. Install **MGU Inspector (read-only development)** under Tools, following the Store's USB source flow. This package itself needs no restart/service; follow any dependency pending-reboot notices. Do not unpack/copy files into firmware folders manually.
-2. From the laptop, with the existing host key and identity already configured:
+The read-only API has fixed JSON operations: summary, platform, graphics, browser, audio, network, safety and report. There is no shell string, file-path argument, upload endpoint or remote executable. HTTP Origin headers, duplicate headers, Transfer-Encoding, invalid lengths and oversized requests are refused. Inputs have time/size limits, up to 8 concurrent HTTP clients; systemd limits memory, tasks and descriptors. The service uses ProtectSystem=strict, NoNewPrivileges, ProtectHome and kernel/control-group protection. The read-only inventory does not open audio devices or subscribe to vehicle interfaces.
 
-   The downloadable bundle also includes `CONNECT.cmd` and a Python/Tk desktop client with host/identity fields, an allowlisted operation selector and a local JSON export button. It uses the same SSH connector and does not save credentials or upload reports. Python 3 with Tk and the OpenSSH client are prerequisites.
+## Installation
 
-   ```sh
-   python tools/inspector_connect.py --host YOUR_MGU_SSH_ALIAS --operation report --out mgu-report.json
-   ```
+Prerequisites: compatible MGU with custom app/tool installation access; Store/deploy >=0.7.0, mgu-python >=1.0.2, mgu-uplink, and IterioDev's Tailscale tool >=1.104.5. Add both shjeladze/JLTube-MGU and IterioDev/car-apps as sources when published; for this development bundle use its USB Catalog alongside the normal upstream sources. Dependencies must be present/downloadable; source packages link against the unit's own SDK. No SDK is distributed here.
 
-   Optional `--identity` selects a local private-key file; it is used by the installed SSH client and never read or included in a report. Never send its contents. The client checks host keys strictly, disables agent/X11/port forwarding, requests a single fixed command, caps output at 128 KiB and ends after 25 seconds. There is no remote arbitrary-command field.
-3. The report is saved locally. An assistant with authorized access to that laptop and network can run the same connector and inspect the result. Installing the tool **does not connect ChatGPT automatically** or grant access to the car. Remote access requires an already functioning owner-controlled private connection; do not expose SSH to the public internet. Existing upstream private networking can be used separately; this tool does not provision it.
+1. Put the generated catalog.json and both .tgz files together in a Store USB source folder. Install MGU Inspector app; it requires the native tool. Follow Store pending-restart notices (ID8 app changes apply at startup).
+2. Install/open IterioDev's Tailscale app from its normal source. Scan its login QR and approve your own device/account. Install Tailscale on the laptop and join the same private network. This is an explicit one-time user login; we cannot approve it automatically.
+3. Open MGU Inspector in the car, select Create pairing code. Open CONNECT.cmd from the laptop bundle, enter the car's Tailscale IPv4 shown by Tailscale, and the code. Select Connect, then a report group. Save the report locally if needed.
+4. Revoke access from either end when done. Remove the Inspector app and tool through Store to remove its service; keep shared Python/Tailscale/uplink dependencies when other apps need them.
 
-On the unit, the equivalent fixed invocation is:
+This package does not unlock a stock car or set up a private network/account automatically. It is not a cloud relay and does not connect to ChatGPT directly. An assistant running on the authorized laptop can use the client or inspect saved reports when that laptop has connectivity. The CLI tools/inspector_pair_cli.py supports a hidden code prompt or --code-stdin for a one-shot report and revokes its token after collection. No password/private-key sharing or SSH command entry is required for the paired path.
 
-```sh
-/var/opt/mgu-python/current/bin/python3 /var/opt/mgu-inspector/current/inspector.py report
-```
+## What we learn, and what remains unknown
 
-Uninstall through Store Tools. There is no persistent process, account or network rule created by this component. Install/removal themselves are privileged deploy operations; the inventory program only reads.
+The inventory reports allowlisted OS release fields, CPU/kernel/libc/Python, ID7/ID8 manager presence, selected installed component versions, graphics socket/device presence, candidate browser paths, namespace sysctls, ALSA card/PCM inventory and at most 32 network interface names/wireless flags/link states. No VIN, IP/MAC, SSID, passwords, tokens, SDK/definitions, process lists, journals, packet captures or general files are collected. Hardware/release strings remain untrusted data and should be reviewed before sharing. Reports are never uploaded automatically.
 
-## Scope and validation
+No Wi-Fi scan, network join, route/firewall change, subnet scan, CAN/UDS access or vehicle writes occur. Wi-Fi hotspot access is not whole-vehicle diagnostic access. MGU inventory cannot discover every ECU capability, establish a valid audio route or guarantee future software ideas without testing. A found device/path is not a working backend. Browser/audio/safety readiness stays false until independently integrated and validated.
 
-This is an initial diagnostic component, not an unrestricted remote executor or a universal app installer. Browser packaging, audio routing, donor linking, vehicle-state validation and production deployment remain separate engineering work. The read-only operations do not require or assert a parked signal; perform setup while stationary. No diagnostic success enables video playback.
+Offline tests exercise expiry/replay/revocation, pairing attempt limits, exact app UID, HTTP framing/origin/auth rejection, output bounds, laptop protocol round trips against a localhost fixture, privacy allowlists and package hashes/reproducibility. Actual car installation, donor linking, Tailscale-to-car transport, systemd restrictions, HMI and Wi-Fi behavior have not been tested. The Tk desktop UI is syntax-checked; its interaction has not been exercised. This is a development package.
 
-Offline fixtures cover both HMI layouts, redaction/allowlists, size limits, command-injection refusal and artifact hashes. Real-car installation and SSH collection have not been run. A future write/deploy operation must be a separate, explicit reviewed update with integrity checks, rollback and vehicle-state prerequisites, rather than arbitrary instructions executing as root.
+## Sources
+
+- https://github.com/robertnisipeanu/mgu-store/blob/7d4d39bf2e449c6134178ac2198465252a526121/docs/PUBLISHING.md
+- https://github.com/robertnisipeanu/mgu-store/blob/7d4d39bf2e449c6134178ac2198465252a526121/native/mgu-uplink/README.md
+- https://github.com/IterioDev/car-apps/blob/2a897bfdec8afe9246904fdebc5e5ae9b9c6fdc6/README.md
+- https://tailscale.com/docs/reference/faq/other-vpns
+
+GPL-3.0-or-later; no affiliation with BMW or Tailscale. The OAP metadata structure is adapted from mgu-store. No BMW SDK files are shipped.

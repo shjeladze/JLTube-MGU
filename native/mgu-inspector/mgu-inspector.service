@@ -1,0 +1,28 @@
+[Unit]
+Description=MGU Inspector paired read-only diagnostics
+After=iteriodev-tailscale.service
+
+[Service]
+Type=simple
+ExecStart=/var/opt/mgu-python/current/bin/python3 -B /var/opt/mgu-inspector/current/agent.py
+RuntimeDirectory=mgu-inspector
+RuntimeDirectoryMode=0755
+UMask=0077
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+PrivateTmp=true
+ReadWritePaths=/run/mgu-inspector
+RestrictAddressFamilies=AF_UNIX AF_INET
+MemoryMax=96M
+TasksMax=32
+LimitNOFILE=64
+
+[Install]
+WantedBy=multi-user.target
