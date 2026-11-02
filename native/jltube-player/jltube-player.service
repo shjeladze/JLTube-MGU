@@ -5,6 +5,7 @@ After=mgu-uplink.service
 [Service]
 Type=simple
 UMask=0022
+ExecStartPre=/usr/bin/node /var/opt/jltube-player/current/compat-check.js
 ExecStartPre=/var/opt/mgu-python/current/bin/python3 /var/opt/jltube-player/current/player.py prepare
 ExecStart=/usr/bin/unshare -m /bin/sh /var/opt/jltube-player/current/run.sh
 Restart=on-failure

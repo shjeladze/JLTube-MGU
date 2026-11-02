@@ -8,6 +8,7 @@ const request = require('./client.js').request;
 const Video = require('./render.js').Video;
 const Keyboard = require('./keyboard.js').Keyboard;
 const Actions = require('./actions.js').Actions;
+const Ui = require('./ui.js').Ui;
 const log = logging.getSDKLogger();
 class JLTube extends OnlineApp {
     constructor() {
@@ -38,6 +39,7 @@ class JLTube extends OnlineApp {
     async setup() {
         const rhmi = this.rhmiApplication;
         if (!rhmi) return this.initialized();
+        this.ui = new Ui(rhmi);
         const state = rhmi.getByName('JLTubeHome');
         state.on('focus', (v) => {
             if (v && (v.focus === true || v.focus === 1 || v.focus === 'true')) {
@@ -98,7 +100,7 @@ class JLTube extends OnlineApp {
     }
     text(value) {
         if (!this.rhmiApplication || this.dead) return;
-        Promise.resolve(this.rhmiApplication.getByName('status').setValue(0, 'Text', value, 'Text'))
+        this.ui.text('status', value)
             .then(() => this.rhmiApplication.flush()).catch((err) => log.warn(err.message));
     }
     open(mode, url) {
@@ -118,7 +120,7 @@ class JLTube extends OnlineApp {
         this.renderKeyboard();
     }
     renderKeyboard() {
-        if (!this.rhmiApplication || this.dead) return;
+        if (!this.rhmiApplication || !this.ui || this.dead) return;
         const rhmi = this.rhmiApplication;
         const pending = [];
         ['google', 'youtube', 'custom', 'enterWeb', 'enterYouTube'].forEach((name) => {
@@ -131,10 +133,10 @@ class JLTube extends OnlineApp {
         });
         pending.push(Promise.resolve(rhmi.getByName('results').setProperty('Visible', this.allowed && !this.typing && this.results.length ? 1 : 0, 'UInt')));
         if (this.typing && this.allowed) {
-            pending.push(Promise.resolve(rhmi.getByName('urlText').setValue(0, 'Text', this.keyboard.value, 'Text')));
+            pending.push(this.ui.text('urlText', this.keyboard.value));
             const letters = rhmi.getByName('letters'), keys = this.keyboard.keys();
             pending.push(Promise.resolve(letters.setRowCount(keys.length)).then(() => Promise.all(keys.map((key, row) =>
-                letters.setValue(row, 'Text', key === ' ' ? 'Space' : key, 'Text')))));
+                this.ui.text('letters', key === ' ' ? 'Space' : key, row)))));
         }
         Promise.all(pending).then(() => rhmi.flush()).catch((err) => log.warn(err.message));
     }
@@ -153,7 +155,7 @@ class JLTube extends OnlineApp {
                 const component = this.rhmiApplication.getByName('results');
                 if (results.length) {
                     Promise.resolve(component.setRowCount(results.length)).then(() => Promise.all(results.map((item, row) =>
-                        component.setValue(row, 'Text', String(item.title).slice(0, 160), 'Text'))))
+                        this.ui.text('results', String(item.title).slice(0, 160), row))))
                         .then(() => this.rhmiApplication.flush()).catch((err) => log.warn(err.message));
                 }
                 this.renderKeyboard();

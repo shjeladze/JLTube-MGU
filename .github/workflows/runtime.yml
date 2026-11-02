@@ -33,7 +33,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: JLTube-MGU-0.3.1-media-development
+          name: JLTube-MGU-ID7-ID8-0.4.0-media-development
           path: dist/
           if-no-files-found: error
           retention-days: 30

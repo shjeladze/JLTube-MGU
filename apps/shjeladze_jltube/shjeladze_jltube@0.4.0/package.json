@@ -1,6 +1,6 @@
 {
   "name": "shjeladze_jltube",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Parked-only JLTube portal (development; vehicle adapters require validation)",
   "private": false,
   "main": "javascript/runner.js",
@@ -32,7 +32,8 @@
   "license": "GPL-3.0-or-later",
   "mguLocalOnly": true,
   "mguHmi": [
-    "ID7"
+    "ID7",
+    "ID8"
   ],
   "mguInternet": true
 }

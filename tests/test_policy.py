@@ -75,6 +75,7 @@ class PolicyTests(unittest.TestCase):
             self.assertEqual(catalog['schema'], 2)
             self.assertEqual(len(catalog['components']), 2)
             for entry in catalog['components']:
+                self.assertEqual(entry['mguHmi'], ['ID7', 'ID8'])
                 path = Path(tmp) / entry['artifact']['name']
                 self.assertEqual(packager.sha(path.read_bytes()), entry['artifact']['sha256'])
                 self.assertEqual(path.stat().st_size, entry['artifact']['size'])
@@ -86,11 +87,16 @@ class PolicyTests(unittest.TestCase):
                     if entry['kind'] == 'app':
                         self.assertIn('mgu-app.json', names)
                         self.assertEqual(entry['build'], 'unit')
+                        source = json.load(archive.extractfile('mgu-app.json'))
+                        for hmi in ['ID7', 'ID8']:
+                            self.assertIn(source['tree'] + '/rhmiData/uiDescriptions/' + hmi + '/application.xml', names)
                     else:
                         manifest = json.load(archive.extractfile('component.json'))
                         for f in manifest['files']:
                             self.assertEqual(f['sha256'], packager.sha(archive.extractfile('files/' + f['path']).read()))
                         self.assertIn('units/jltube-player.service', names)
+                        self.assertEqual(manifest['check'], ['compat-check.js'])
+                        self.assertIn('files/compat-check.js', names)
 
     def test_reproducible_packages(self):
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
@@ -217,6 +223,28 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
                            'vehicle_bridge': {'enabled': True}}, sample_reader=lambda: sample(),
                           clock=lambda: 100.2, boot_id='test-boot')
         self.assertFalse(broker.allowed())
+
+    async def test_app_uid_is_discovered_from_exact_authoritative_registry_entry(self):
+        broker = self.broker()
+        broker.config['app_uid'] = None
+        self.assertIsNone(broker.registered_uid())
+        broker.ingest_registry({'components': [{'id': 'shjeladze_jltube', 'kind': 'app', 'uid': 17300}]})
+        self.assertEqual(broker.registered_uid(), 17300)
+        self.assertTrue((await broker.dispatch({'op': 'status'}, 17300))['allowed'])
+        with self.assertRaises(ValueError):
+            await broker.dispatch({'op': 'status'}, 12250)
+        broker.clock = lambda: 103
+        self.assertIsNone(broker.registered_uid())
+        self.assertFalse(broker.allowed())
+
+    async def test_registry_rejects_ambiguous_wrong_kind_and_privileged_uids(self):
+        broker = self.broker()
+        broker.config['app_uid'] = None
+        entry = {'id': 'shjeladze_jltube', 'kind': 'app', 'uid': 17300}
+        for components in [[entry, entry], [dict(entry, kind='tool')], [dict(entry, id='another_app')],
+                           [dict(entry, uid=0)], [dict(entry, uid=3921)], [dict(entry, uid=True)], []]:
+            broker.ingest_registry({'components': components})
+            self.assertIsNone(broker.registered_uid())
 
     async def test_youtube_pipeline_writes_frame_and_always_clears_output(self):
         broker = self.broker()

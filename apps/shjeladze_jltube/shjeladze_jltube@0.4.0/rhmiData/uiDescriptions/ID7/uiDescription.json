@@ -334,6 +334,28 @@
               }
             }
           ]
+        },
+        "90": {
+          "type": "label",
+          "name": "jltubeHmiID7",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "ID7",
+                "type": "Text"
+              }
+            }
+          ]
         }
       }
     }

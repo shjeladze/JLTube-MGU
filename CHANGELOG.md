@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+* Generate distinct ID7 and ID8 RHMI layouts and declare both HMI targets in the app, staged package, tool and Catalog.
+* Add ID8 media-entry text-cell routing and the HMI 2 proxy declarations required by its local donor SDK; reject missing/ambiguous UI variants.
+* Add an installation/service compatibility gate for x86-64 Linux and required shared components. Refuse unknown, ambiguous and non-x86 platforms explicitly.
+* Add offline ID7/ID8 UI-routing, manifest/layout and platform-gate coverage. Audio, general browsing and real-car validation remain unresolved; this is not a universal production release.
+
 ## 0.3.1
 
 * Add native YouTube search and a selectable results list using bounded yt-dlp metadata output. Construct playback URLs from validated video IDs; discard results if parked authorization is lost. YouTube search does not require a general browser engine.

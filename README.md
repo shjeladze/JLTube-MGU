@@ -1,12 +1,14 @@
 # JLTube-MGU
 
-Parked-only YouTube player and web portal project for BMW iDrive 7 / MGU.
-**0.3.1 is a development implementation, not a validated in-car player.**
+Parked-only YouTube player and web portal project for compatible BMW iDrive 7 and iDrive 8 MGU OAP environments.
+**0.4.0 is a development implementation, not a validated in-car player.**
 No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binaries are shipped.
+
+See [ID7/ID8 compatibility](docs/COMPATIBILITY.md) for platform gates. This is not a universal installer for every BMW; audio and a full browser remain unimplemented.
 
 ## What works in this implementation
 
-* Lightweight ID7 OAP source package (`mgu-app.json`), linked by the Store against the car's own SDK.
+* Lightweight dual-layout ID7/ID8 OAP source package (`mgu-app.json`), linked by the Store against the car's own SDK.
 * Separate `jltube-player` tool: local Unix-socket safety broker, pinned-runtime checks, YouTube resolver/FFmpeg process pipeline, and current mgu-render MGVF/I420 triple-buffer output.
 * Parked-only policy enforced in the broker, not by a checkbox in the UI. Unknown, stale, invalid, future, nonzero speed, or anything other than gear `P` locks playback. The app cannot send vehicle-state updates or an unlock command.
 * App focus/visibility stop, server-side app-heartbeat timeout, child-process cleanup, black-frame output on stop, bounded resolver output and request sizes, HTTPS-only URLs, exact YouTube hosts, TLS verification, no shell evaluation, no automatic dependency downloads.
@@ -18,7 +20,7 @@ No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binarie
 
 ## Deliberately unresolved
 
-**This is not ready to install for everyday use.** No real car, BMW SDK donor, emulator, Linux media runtime, or live YouTube playback was available during development.
+**This is not ready to install for everyday use.** No real car, BMW SDK donor, emulator or live YouTube playback was available. The preceding 0.3.1 Linux build passed static media linking, QuickJS/yt-dlp startup and an actual offline H.264-to-I420 decoder fixture; that does not establish head-unit compatibility.
 
 | Area | Current status |
 | --- | --- |
@@ -38,7 +40,7 @@ The absence of a browser backend must not be mistaken for successful Google/YouT
 
 The OAP process connects to `/run/mgu-render/render.sock` as its own app UID; the renderer uses that UID for foreground gating. Native programs never run inside the OAP package. The broker is root only for local credential checks, trusted state reads, privilege dropping and a root-owned frame file (accepted by the renderer). yt-dlp, QuickJS and FFmpeg run as UID/GID **3921**, with no supplementary groups, under `NoNewPrivileges`. No interactive account or sudo is created. `prepare` refuses an existing account/process at that UID; also inspect other installed tools for reserved but inactive UID collisions before installation.
 
-The control socket is `root:tm_oap_app`, mode `0660`; the broker additionally checks Linux `SO_PEERCRED` against the root-configured installed app UID. No TCP/HTTP server, remote control page, password/token store or root-command endpoint is exposed. Do not add the broker to broad privileged groups. Tools are installed by the Store's deploy tool, never by app JavaScript.
+The control socket is `root:tm_oap_app`, mode `0660`; the broker additionally checks Linux `SO_PEERCRED` against the installed app UID discovered from the root deploy registry (or an explicit root configuration). No TCP/HTTP server, remote control page, password/token store or root-command endpoint is exposed. Do not add the broker to broad privileged groups. Tools are installed by the Store's deploy tool, never by app JavaScript.
 
 The service runs in a private mount namespace and binds its own resolver file over `/etc/resolv.conf` there, failing startup if binding fails. The head unit's resolver and network defaults stay unchanged. The updater installs mgu-uplink first; the tool's `internet: true, uids: [3921]` authorizes only that worker UID through uplink. The app also declares `internet: true`/`mguInternet: true`. DNS comes from `/run/mgu-uplink/lease.json`. The media workers need DNS plus outbound HTTPS to YouTube and `*.googlevideo.com`; yt-dlp can need other YouTube-owned challenge/API endpoints. Allow certificate validation and a correct system clock. No inbound network access is required. The stock car-network routes still exist under uplink; this build does not provide a general browser network sandbox or DNS-rebinding defense. Such isolation is a prerequisite for a future general browser.
 
@@ -54,8 +56,8 @@ python tools/package.py --out dist
 
 Tests never connect to a car, network or GitHub. Windows skips three Linux-only frame-file/process-group tests; Linux CI runs them. The packager emits:
 
-* `shjeladze_jltube@0.3.1.tgz` — source package, no SDK, `build: "unit"` in the Catalog;
-* `jltube-player@0.3.1.tgz` — tool kit (`component.json`, `files/`, `units/`);
+* `shjeladze_jltube@0.4.0.tgz` — source package, no SDK, `build: "unit"` in the Catalog;
+* `jltube-player@0.4.0.tgz` — tool kit (`component.json`, `files/`, `units/`);
 * schema-2 `catalog.json` and `SHA256SUMS`.
 
 By default the packages contain the locked diagnostic implementation and **no media runtimes**. The packager neither downloads nor executes external binaries. `requires` fields are minimum installed component versions, not exact dependency locks; `dependencies.lock.json` pins the upstream source revisions reviewed for this implementation. Pinning an upstream source revision does not prove ABI compatibility.
@@ -98,7 +100,7 @@ The bridge must create `/run/jltube-vehicle` as root mode `0755`, and atomically
 
 `monotonic` is Linux CLOCK_MONOTONIC seconds from the same boot, not UTC or the phone's clock. Preserve the oldest of the speed/gear measurement times; require valid fresh measurements for both. Refresh faster than 500 ms; mark invalid or remove the file on disconnect, sleep or signal uncertainty. Reject inconsistent signals. No fake-state writer is installed. The optional native bridge uses private pipes instead of this file and includes the full challenge round-trip delay in sample age.
 
-After real signal validation only, create `/var/opt/jltube-player/config.json` as root mode `0600`, in a root-owned, non-group/world-writable directory, using `native/jltube-player/config.example.json`. Set `app_uid` to the UID actually assigned by mgu-deploy status (never guess), set `vehicle_adapter_validated` to true only after proving that adapter, and supply reviewed binary hashes. Restart the broker to load a changed configuration. Do not loosen state-file ownership or remove stale/unknown-state checks. An arbitrary root process can still bypass any software policy; root access is part of the trust boundary.
+After real signal validation only, create `/var/opt/jltube-player/config.json` as root mode `0600`, in a root-owned, non-group/world-writable directory, using `native/jltube-player/config.example.json`. Leave `app_uid` null for automatic discovery from the authoritative deploy registry; an optional explicit value must match mgu-deploy status. Set `vehicle_adapter_validated` to true only after proving that adapter, and supply reviewed binary hashes. Restart the broker to load a changed configuration. Do not loosen state-file ownership or remove stale/unknown-state checks. An arbitrary root process can still bypass any software policy; root access is part of the trust boundary.
 
 The watchdog checks every 100 ms, rejects a signal older than 500 ms, kills the complete media process group, and replaces the frame with black. The app also hides/drops the video on lockout and closes its renderer connection on losing focus. A lost app heartbeat stops the server's workers after 1.5 seconds. These are configured timing bounds, not measured real-car stopping guarantees. Confirm the physical display clears immediately on the target and that no cached or resumed playback survives a lockout. There is no automatic resume.
 
@@ -121,12 +123,12 @@ The **Open saved URL** button requests it. **Enter website URL** and **Enter You
 Follow the current [Store publishing guide](https://github.com/robertnisipeanu/mgu-store/blob/7d4d39bf2e449c6134178ac2198465252a526121/docs/PUBLISHING.md). There is intentionally **no `mgu-repo.json`** and no repo-tree build. After validation and an appropriate version bump:
 
 ```sh
-python tools/package.py --runtime-dir vendor/runtime --out dist --base-url https://github.com/shjeladze/JLTube-MGU/releases/download/v0.3.1
+python tools/package.py --runtime-dir vendor/runtime --out dist --base-url https://github.com/shjeladze/JLTube-MGU/releases/download/v0.4.0
 ```
 
 Upload both `.tgz` assets to that version's GitHub Release; upload `catalog.json` to a release with tag/name `catalog`, as the Store requires. The Catalog must use the absolute release-download URLs generated by `--base-url`, not relative URLs for a GitHub Catalog release. For static HTTPS hosting or a USB folder, relative Catalog URLs work. A development package must be labelled experimental; do not present it as validated merely by creating a non-prerelease release.
 
-In the Store, add `shjeladze/JLTube-MGU` on **Releases** once a Catalog release actually exists, or add an HTTPS Catalog URL. No release is automatically published by this repository or CI. Install the Store, mgu-render, mgu-python and mgu-uplink using their own upstream instructions first; the Catalog lists the player dependency before app installation. Confirm the Store reports Online with the chosen USB/tether/Wi-Fi connection. A normal head-unit restart may be required by its tool/recmgr installation lifecycle; follow the Store's pending-restart status.
+In the Store, add `shjeladze/JLTube-MGU` on **Releases** once a Catalog release actually exists, or add an HTTPS Catalog URL. No release is automatically published by this repository or CI. Install the Store/mgu-deploy, mgu-render, mgu-python and mgu-uplink using their own upstream instructions first; the Catalog lists the player dependency before app installation. Confirm the Store reports Online with the chosen USB/tether/Wi-Fi connection. A normal head-unit restart may be required by its tool/recmgr installation lifecycle; follow the Store's pending-restart status.
 
 For offline installation later, copy the generated Catalog and both packages to a USB source folder, or use the Store's `usb-repo` command with a published Catalog. USB installs do not make YouTube playable without an internet uplink.
 

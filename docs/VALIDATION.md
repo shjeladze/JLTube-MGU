@@ -1,4 +1,4 @@
-# Validation record — 0.3.1
+# Validation record — 0.4.0
 
 This record distinguishes offline evidence from target behavior. No real-car tests have been performed.
 
@@ -6,17 +6,17 @@ This record distinguishes offline evidence from target behavior. No real-car tes
 | --- | --- |
 | Repository starting state | `main` c9b8299: README only; no implementation to preserve |
 | Current public formats | Reviewed mgu-store, idrive7-apps, IterioDev pinned commits in dependencies.lock.json |
-| Windows offline self-test | 22 Python tests: 19 passed, 3 Linux-only tests skipped; JavaScript keyboard/action/bridge-state checks, manifests and Node syntax passed |
+| Windows offline self-test | 24 Python tests: 21 passed, 3 Linux-only tests skipped; JavaScript ID7/ID8 UI, compatibility-gate, keyboard/action/bridge-state checks, manifests and Node syntax passed |
 | Reproducibility | Two builds compared byte-for-byte by automated test |
 | Package integrity | Catalog size/SHA-256 and every tool file hash checked by automated test |
 | SDK exclusion | Source-package allowlist; no node_modules/oap-sdk, firmware, donor bundle or compiled app.js |
 | Parked-state policy | Zero speed + P + valid + same boot + <=500 ms; malformed, stale, future, nonfinite and non-P cases tested |
-| IPC | Exact configured app UID; root/other app rejected; no vehicle/unlock op; output cap tested |
+| IPC | Exact authoritative deploy-registry app UID with expiring cache (optional explicit root configuration); root/other app rejected; no vehicle/unlock op; output cap tested |
 | Watchdog | Running-task cancellation on motion and app-heartbeat loss tested with fake playback |
 | Linux frame IO/process cleanup | Included in CI; not executed on Windows |
 | CI after remote commit | Inspect GitHub Actions; not presumed passed |
 | Actual OAP donor linking and HMI focus/entry lifecycle | NOT TESTED; local owner-supplied donor required |
-| Linux native decoder/resolver/EJS pipeline | NOT TESTED; no target-compatible runtimes supplied |
+| Linux native decoder/resolver/EJS pipeline | Preceding 0.3.1 Linux CI passed static linking, QuickJS/yt-dlp startup and offline H.264 decoding. New version CI must pass independently; live extraction and target ABI remain untested |
 | systemd 237 + unshare + resolver namespace + recmgr | NOT TESTED on head unit |
 | UID 3921 availability and uplink firewall/routing | Startup account/process collision refusal implemented; target inventory and network tests required |
 | Vehicle speed/Park signal bridge | Native read-only bridge implemented; challenge/response transport ages and signal expiry tested; actual binding, getter semantics and definitions NOT VALIDATED on target |

@@ -36,9 +36,10 @@ def validate():
     pkg = load(tree / 'package.json')
     if (app['id'], app['version']) != (pkg['name'], pkg['version']):
         raise ValueError('App identity/version mismatch')
-    if app['schema'] != 1 or app['mguHmi'] != ['ID7'] or app['internet'] is not True or pkg['mguInternet'] is not True:
+    supported = ['ID7', 'ID8']
+    if app['schema'] != 1 or app['mguHmi'] != supported or pkg['mguHmi'] != supported or app['internet'] is not True or pkg['mguInternet'] is not True:
         raise ValueError('App compatibility/network declaration mismatch')
-    if tool['mguHmi'] != ['ID7'] or tool['internet'] is not True or tool['uids'] != [3921]:
+    if tool['mguHmi'] != supported or tool['internet'] is not True or tool['uids'] != [3921]:
         raise ValueError('Tool compatibility/network declaration mismatch')
     if app['requires']['jltube-player'] != tool['version']:
         raise ValueError('Player dependency mismatch')
@@ -56,8 +57,10 @@ def validate():
     appdesc = load(tree / 'rhmiData/application.json')['application']
     if appdesc['name'] != app['id'] or appdesc['version'] != app['version']:
         raise ValueError('RHMI app identity mismatch')
+    if sorted(h for ui in appdesc['uiDescriptions'] for h in ui['hmi']) != supported:
+        raise ValueError('Missing or duplicate HMI UI description')
     for ui in appdesc['uiDescriptions']:
-        if ui['hmi'] != ['ID7']:
+        if len(ui['hmi']) != 1 or ui['hmi'][0] not in supported:
             raise ValueError('Unexpected HMI')
         xml = ET.parse(tree / 'rhmiData' / safe_path(ui['applicationFilePath'].removeprefix('./')))
         desc = load(tree / 'rhmiData' / safe_path(ui['uiDescriptionFilePath'].removeprefix('./')))
@@ -68,6 +71,10 @@ def validate():
             xml_ids = {c.attrib['id'] for c in node.findall('.//component')}
             if xml_ids != set(state['components']):
                 raise ValueError('RHMI XML/JSON component mismatch')
+            for comp in state['components'].values():
+                expected_cell = 'PrimaryText' if ui['hmi'] == ['ID8'] and comp['type'] == 'button' else 'Text'
+                if expected_cell not in comp['rows'][0]:
+                    raise ValueError('Wrong text cell for ' + ui['hmi'][0])
     for ep in appdesc['entryPoints']:
         if ep['icon'] and not (tree / 'rhmiData/variantGroups/Common/images' / safe_path(ep['icon'])).is_file():
             raise ValueError('Missing app icon')
@@ -150,7 +157,7 @@ def build(out, runtime_dir=None, base_url=None):
         (out / name).write_bytes(data)
         component = {'id': identity, 'version': version, 'kind': kind, 'title': identity + ' (development)',
                      'description': 'Development package; parked-state adapter and media runtimes require validation.',
-                     'mguHmi': ['ID7'], 'requires': requires, 'uninstallable': True,
+                     'mguHmi': app['mguHmi'] if kind == 'app' else tool['mguHmi'], 'requires': requires, 'uninstallable': True,
                      'artifact': {'name': name, 'url': base_url.rstrip('/') + '/' + name if base_url else name,
                                   'size': len(data), 'sha256': sha(data)}}
         if kind == 'app':

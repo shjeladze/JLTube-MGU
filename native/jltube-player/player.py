@@ -22,7 +22,7 @@ import sys
 import time
 from urllib.parse import urlsplit
 
-VERSION = '0.3.1'
+VERSION = '0.4.0'
 INSTALL = Path('/var/opt/jltube-player/current')
 RUNTIME = Path('/run/jltube-player')
 CONFIG = Path('/var/opt/jltube-player/config.json')
@@ -188,11 +188,61 @@ class Broker:
         self.control_lock = asyncio.Lock()
         self.search_results = []
         self.video_generation = 0
+        self.registry_uid = None
+        self.registry_valid_until = 0
         self.bridge_sample = None
         self.bridge_process = None
         if config.get('vehicle_bridge', {}).get('enabled') is True:
             # When selected, a failed native bridge never falls back to a stale state file.
             self.sample_reader = lambda: self.bridge_sample
+
+    def registered_uid(self):
+        configured = self.config.get('app_uid')
+        if configured is not None:
+            return configured if type(configured) is int and 10000 <= configured < 65534 else None
+        return self.registry_uid if self.clock() <= self.registry_valid_until else None
+
+    def ingest_registry(self, value):
+        self.registry_uid, self.registry_valid_until = None, 0
+        if not isinstance(value, dict) or not isinstance(value.get('components'), list):
+            return
+        matches = [entry for entry in value['components'] if isinstance(entry, dict)
+                   and entry.get('kind') == 'app' and entry.get('id') == 'shjeladze_jltube']
+        if len(matches) != 1:
+            return
+        uid = matches[0].get('uid')
+        if type(uid) is not int or not 1 <= uid < 2 ** 31 or uid == WORKER_UID:
+            return
+        self.registry_uid, self.registry_valid_until = uid, self.clock() + 2.5
+
+    async def app_registry(self):
+        if self.config.get('app_uid') is not None:
+            return
+        proc = None
+        try:
+            while True:
+                try:
+                    # Root's deploy registry is the authority; never trust a package.json writable by an app.
+                    proc = await asyncio.create_subprocess_exec(
+                        '/bin/sh', '/var/opt/mgu-deploy/mgu-deploy.sh', 'status', '--json',
+                        stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.DEVNULL, start_new_session=True,
+                        env={'PATH': '/usr/bin:/bin', 'LANG': 'C'})
+                    raw = await asyncio.wait_for(bounded_read(proc.stdout, 512 * 1024), 1)
+                    if await asyncio.wait_for(proc.wait(), 1):
+                        raise ValueError('App registration unavailable')
+                    self.ingest_registry(json.loads(raw))
+                except (OSError, ValueError, asyncio.TimeoutError):
+                    self.registry_uid, self.registry_valid_until = None, 0
+                finally:
+                    if proc:
+                        await self.kill_process(proc)
+                        proc = None
+                await asyncio.sleep(1)
+        finally:
+            self.registry_uid, self.registry_valid_until = None, 0
+            if proc:
+                await self.kill_process(proc)
 
     def ingest_bridge_sample(self, value, transport_age=0):
         self.bridge_sample = None
@@ -247,6 +297,8 @@ class Broker:
                 self.bridge_process = None
 
     def allowed(self):
+        if self.registered_uid() is None:
+            return False
         if self.config.get('vehicle_adapter_validated') is not True:
             return False
         try:
@@ -397,9 +449,8 @@ class Broker:
     async def dispatch(self, message, uid):
         if not isinstance(message, dict):
             raise ValueError('Expected JSON object')
-        if (type(self.config.get('app_uid')) is not int or not 10000 <= self.config['app_uid'] < 65534
-                or uid != self.config['app_uid']):
-            raise ValueError('Configure the installed JLTube app UID before use')
+        if uid != self.registered_uid() or self.registered_uid() is None:
+            raise ValueError('JLTube registration is not available for this app yet')
         op = message.get('op')
         if op == 'status':
             self.last_client = self.clock()
@@ -485,6 +536,7 @@ async def serve(config):
     # Any unexpected watchdog exit stops the whole broker rather than leaving an unguarded player.
     watchdog.add_done_callback(lambda task: stop_event.set())
     bridge = asyncio.create_task(broker.vehicle_bridge())
+    registry = asyncio.create_task(broker.app_registry())
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop_event.set)
@@ -494,7 +546,8 @@ async def serve(config):
     finally:
         watchdog.cancel()
         bridge.cancel()
-        await asyncio.gather(watchdog, bridge, return_exceptions=True)
+        registry.cancel()
+        await asyncio.gather(watchdog, bridge, registry, return_exceptions=True)
         await broker.stop('Service stopped')
         sock.unlink(missing_ok=True)
 
