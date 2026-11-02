@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "target": "x86_64-linux-musl",
+  "cpu": "baseline",
+  "zig": {
+    "version": "0.13.0",
+    "url": "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz",
+    "sha256": "d45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea"
+  },
+  "sources": {
+    "ffmpeg": {"version": "9.0.2", "repo": "https://github.com/FFmpeg/FFmpeg.git", "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"},
+    "qjs": {"version": "2026-06-04", "repo": "https://github.com/bellard/quickjs.git", "commit": "3d5e064e9dd67c70f7962836505a7fa067bf0a4e"},
+    "openssl": {"version": "3.5.9", "repo": "https://github.com/openssl/openssl.git", "commit": "45e844fa2a14ec92d146bd8f5778ac130b6625fb"}
+  },
+  "yt-dlp": {
+    "version": "2026.10.26",
+    "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp",
+    "sha256": "e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3"
+  }
+}

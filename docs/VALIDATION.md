@@ -1,4 +1,4 @@
-# Validation record — 0.3.0
+# Validation record — 0.3.1
 
 This record distinguishes offline evidence from target behavior. No real-car tests have been performed.
 
@@ -6,21 +6,22 @@ This record distinguishes offline evidence from target behavior. No real-car tes
 | --- | --- |
 | Repository starting state | `main` c9b8299: README only; no implementation to preserve |
 | Current public formats | Reviewed mgu-store, idrive7-apps, IterioDev pinned commits in dependencies.lock.json |
-| Windows offline self-test | 15 tests: 13 passed, 2 Linux-only tests skipped; manifests and Node syntax passed |
+| Windows offline self-test | 19 Python tests: 16 passed, 3 Linux-only tests skipped; JavaScript keyboard/bridge-state checks, manifests and Node syntax passed |
 | Reproducibility | Two builds compared byte-for-byte by automated test |
 | Package integrity | Catalog size/SHA-256 and every tool file hash checked by automated test |
 | SDK exclusion | Source-package allowlist; no node_modules/oap-sdk, firmware, donor bundle or compiled app.js |
 | Parked-state policy | Zero speed + P + valid + same boot + <=500 ms; malformed, stale, future, nonfinite and non-P cases tested |
 | IPC | Exact configured app UID; root/other app rejected; no vehicle/unlock op; output cap tested |
 | Watchdog | Running-task cancellation on motion and app-heartbeat loss tested with fake playback |
-| Linux frame IO | Included in CI; not executed on Windows |
+| Linux frame IO/process cleanup | Included in CI; not executed on Windows |
 | CI after remote commit | Inspect GitHub Actions; not presumed passed |
 | Actual OAP donor linking and HMI focus/entry lifecycle | NOT TESTED; local owner-supplied donor required |
 | Linux native decoder/resolver/EJS pipeline | NOT TESTED; no target-compatible runtimes supplied |
 | systemd 237 + unshare + resolver namespace + recmgr | NOT TESTED on head unit |
 | UID 3921 availability and uplink firewall/routing | Startup account/process collision refusal implemented; target inventory and network tests required |
-| Vehicle speed/Park signal bridge | NOT IMPLEMENTED; no simulated/manual unlock installed |
-| Full browser and in-car URL speller | NOT IMPLEMENTED |
+| Vehicle speed/Park signal bridge | Native read-only bridge implemented; challenge/response transport ages and signal expiry tested; actual binding, getter semantics and definitions NOT VALIDATED on target |
+| In-car URL entry | RHMI keyboard implemented; pure keyboard tests passed; physical controller/touch/focus NOT VALIDATED |
+| Full browser engine | NOT IMPLEMENTED; target compatibility report required before selecting a runtime |
 | Audio routing and media session | NOT IMPLEMENTED; audio deliberately disabled |
 
 ## Required target acceptance evidence

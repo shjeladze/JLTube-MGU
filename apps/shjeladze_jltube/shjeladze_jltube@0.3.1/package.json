@@ -1,6 +1,6 @@
 {
   "name": "shjeladze_jltube",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Parked-only JLTube portal (development; vehicle adapters require validation)",
   "private": false,
   "main": "javascript/runner.js",

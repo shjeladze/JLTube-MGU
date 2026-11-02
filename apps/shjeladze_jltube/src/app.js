@@ -6,10 +6,13 @@ const fs = require('fs');
 const path = require('path');
 const request = require('./client.js').request;
 const Video = require('./render.js').Video;
+const Keyboard = require('./keyboard.js').Keyboard;
+const Actions = require('./actions.js').Actions;
 const log = logging.getSDKLogger();
 class JLTube extends OnlineApp {
     constructor() {
         super(); this.visible = false; this.busy = false; this.dead = false;
+        this.allowed = false; this.typing = false; this.keyboard = new Keyboard();
         this.gpu = new Video('shjeladze_jltube');
         this.on('initialized', () => this.setup().catch((err) => log.error(err.message)));
         this.on('entryPointExecute', (uuid) => {
@@ -23,7 +26,9 @@ class JLTube extends OnlineApp {
         this.on('error', (err) => log.warn(err.message));
     }
     hide() {
-        this.visible = false; this.gpu.close(); request({op: 'stop'}).catch(() => {});
+        this.visible = false; this.allowed = false; this.typing = false; this.keyboard.clear();
+        this.renderKeyboard();
+        this.gpu.close(); request({op: 'stop'}).catch(() => {});
         if (this._initialized && this._appStatusService) {
             Promise.resolve(this.unregisterHmiVisible()).catch(() => {});
             Promise.resolve(this.registerInactive()).catch(() => {});
@@ -41,9 +46,30 @@ class JLTube extends OnlineApp {
             }
             else this.hide();
         });
-        const bind = (name, fn) => rhmi.getByName(name).on('action', () => fn());
+        state.on('visible', (event) => { if (!event || event.visible === false || event.visible === 0) this.hide(); });
+        rhmi.on('applicationStackChanged', (stack) => {
+            if (stack && Object.keys(stack).length && !Object.prototype.hasOwnProperty.call(stack, 'ROOT_APP')) this.hide();
+        });
+        rhmi.on('restoreHmi', () => { this.gpu.close(); this.updateAvailability(false); request({op: 'stop'}).catch(() => {}); });
+        const actions = new Actions();
+        const bind = (name, fn) => actions.bind(rhmi.getByName(name), name, fn);
+        rhmi.on('userEvent', (event) => actions.raw(event));
         bind('google', () => this.open('web', 'https://www.google.com/'));
         bind('youtube', () => this.open('web', 'https://www.youtube.com/'));
+        bind('enterWeb', () => this.beginUrl('web'));
+        bind('enterYouTube', () => this.beginUrl('youtube'));
+        bind('letters', (event) => {
+            if (!this.allowed || !this.visible || !this.typing) return;
+            this.keyboard.append(Number(event && event.row)); this.renderKeyboard();
+        });
+        bind('nextKeys', () => { if (this.typing && this.allowed) { this.keyboard.next(); this.renderKeyboard(); } });
+        bind('erase', () => { if (this.typing && this.allowed) { this.keyboard.backspace(); this.renderKeyboard(); } });
+        bind('cancelUrl', () => { this.typing = false; this.keyboard.clear(); this.renderKeyboard(); });
+        bind('submitUrl', () => {
+            if (!this.typing || !this.allowed || !this.visible) return;
+            const url = this.keyboard.value, mode = this.keyboard.mode;
+            this.typing = false; this.keyboard.clear(); this.renderKeyboard(); this.open(mode, url);
+        });
         bind('custom', () => {
             // Owner-selected URL, never interpreted as code. A native speller remains a validation item.
             try {
@@ -53,6 +79,7 @@ class JLTube extends OnlineApp {
             } catch (err) { this.text('Add data/portal.json with mode and url; see README.'); }
         });
         bind('stop', () => { this.gpu.show(false); request({op: 'stop'}).catch(() => {}); });
+        this.updateAvailability(false);
         const entry = this.getEntryPoints().find((ep) => ep.getDescription().name === 'shjeladze_jltube');
         if (!entry) throw new Error('JLTube entry point unavailable');
         await entry.init();
@@ -69,9 +96,39 @@ class JLTube extends OnlineApp {
             .then(() => this.rhmiApplication.flush()).catch((err) => log.warn(err.message));
     }
     open(mode, url) {
-        if (!this.visible) return;
+        if (!this.visible || !this.allowed) return;
         request({op: 'open', mode: mode, url: url}).then((r) => this.text(r.error || 'Starting…'))
             .catch((err) => this.text(err.message));
+    }
+    beginUrl(mode) {
+        if (!this.visible || !this.allowed) return;
+        this.gpu.show(false); request({op: 'stop'}).catch(() => {});
+        this.keyboard.begin(mode); this.typing = true; this.renderKeyboard();
+    }
+    updateAvailability(allowed) {
+        this.allowed = allowed === true;
+        if (!this.allowed) { this.typing = false; this.keyboard.clear(); }
+        this.renderKeyboard();
+    }
+    renderKeyboard() {
+        if (!this.rhmiApplication || this.dead) return;
+        const rhmi = this.rhmiApplication;
+        const pending = [];
+        ['google', 'youtube', 'custom', 'enterWeb', 'enterYouTube'].forEach((name) => {
+            const comp = rhmi.getByName(name);
+            pending.push(Promise.resolve(comp.setProperty('Focusable', this.allowed && !this.typing ? 3 : 0, 'UInt')));
+            pending.push(Promise.resolve(comp.setProperty('Visible', this.typing ? 0 : 1, 'UInt')));
+        });
+        ['urlText', 'letters', 'nextKeys', 'erase', 'submitUrl', 'cancelUrl'].forEach((name) => {
+            pending.push(Promise.resolve(rhmi.getByName(name).setProperty('Visible', this.typing && this.allowed ? 1 : 0, 'UInt')));
+        });
+        if (this.typing && this.allowed) {
+            pending.push(Promise.resolve(rhmi.getByName('urlText').setValue(0, 'Text', this.keyboard.value, 'Text')));
+            const letters = rhmi.getByName('letters'), keys = this.keyboard.keys();
+            pending.push(Promise.resolve(letters.setRowCount(keys.length)).then(() => Promise.all(keys.map((key, row) =>
+                letters.setValue(row, 'Text', key, 'Text')))));
+        }
+        Promise.all(pending).then(() => rhmi.flush()).catch((err) => log.warn(err.message));
     }
     async poll() {
         if (this.busy || !this.visible || this.dead) return;
@@ -79,9 +136,10 @@ class JLTube extends OnlineApp {
         try {
             const r = await request({op: 'status'});
             if (!this.visible || this.dead) return;
+            if (this.allowed !== (r.allowed === true)) this.updateAvailability(r.allowed === true);
             this.text(r.error || r.reason || r.state || 'Player unavailable — locked');
-            this.gpu.show(r.allowed === true && r.state === 'playing');
-        } catch (err) { this.gpu.close(); this.text('Player unavailable — locked'); }
+            this.gpu.show(!this.typing && r.allowed === true && r.state === 'playing');
+        } catch (err) { this.gpu.close(); this.updateAvailability(false); this.text('Player unavailable — locked'); }
         finally { this.busy = false; }
     }
 }

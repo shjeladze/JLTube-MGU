@@ -1,0 +1,319 @@
+{
+  "schemaVersion": "1.3.0",
+  "containers": {
+    "1": {
+      "type": "state",
+      "name": "JLTubeHome",
+      "components": {
+        "10": {
+          "type": "title",
+          "name": "title",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "JLTube — development",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "20": {
+          "type": "label",
+          "name": "status",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Locked: vehicle adapter not validated",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "21": {
+          "type": "button",
+          "name": "google",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Google (browser unavailable)",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "22": {
+          "type": "button",
+          "name": "youtube",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "YouTube portal (browser unavailable)",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "23": {
+          "type": "button",
+          "name": "custom",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Open saved URL",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "25": {
+          "type": "button",
+          "name": "enterWeb",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Enter website URL",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "26": {
+          "type": "button",
+          "name": "enterYouTube",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Enter YouTube video URL",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "24": {
+          "type": "button",
+          "name": "stop",
+          "properties": {
+            "Visible": {
+              "value": 1,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Stop",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "30": {
+          "type": "label",
+          "name": "urlText",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 0,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "31": {
+          "type": "button",
+          "name": "letters",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "a",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "32": {
+          "type": "button",
+          "name": "nextKeys",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Next characters",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "33": {
+          "type": "button",
+          "name": "erase",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Delete character",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "34": {
+          "type": "button",
+          "name": "submitUrl",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Open",
+                "type": "Text"
+              }
+            }
+          ]
+        },
+        "35": {
+          "type": "button",
+          "name": "cancelUrl",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Cancel",
+                "type": "Text"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

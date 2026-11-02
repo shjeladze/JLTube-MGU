@@ -13,6 +13,7 @@ import math
 import os
 from pathlib import Path
 import signal
+import secrets
 import socket
 import stat
 import struct
@@ -20,7 +21,7 @@ import sys
 import time
 from urllib.parse import urlsplit
 
-VERSION = '0.3.0'
+VERSION = '0.3.1'
 INSTALL = Path('/var/opt/jltube-player/current')
 RUNTIME = Path('/run/jltube-player')
 CONFIG = Path('/var/opt/jltube-player/config.json')
@@ -121,6 +122,11 @@ class FrameFile:
 def checked_binaries(config, root=INSTALL):
     """No auto-update/downloader. Only reviewed local binaries by hash."""
     lock = config.get('binaries', {})
+    if not lock:
+        try:
+            lock = trusted_json((root / 'runtime-lock.json').resolve())
+        except (OSError, ValueError):
+            raise ValueError('Missing pinned runtime lock; install the media-inclusive tool package') from None
     result = {}
     versions = {'yt-dlp': '2026.10.26', 'ffmpeg': '9.0.2', 'qjs': '2026-06-04'}
     for name, version in versions.items():
@@ -160,6 +166,63 @@ class Broker:
         self.last_client = 0
         self.dns_updated = 0
         self.control_lock = asyncio.Lock()
+        self.bridge_sample = None
+        self.bridge_process = None
+        if config.get('vehicle_bridge', {}).get('enabled') is True:
+            # When selected, a failed native bridge never falls back to a stale state file.
+            self.sample_reader = lambda: self.bridge_sample
+
+    def ingest_bridge_sample(self, value, transport_age=0):
+        self.bridge_sample = None
+        if not isinstance(value, dict) or value.get('schema') != 1 or value.get('valid') is not True:
+            return
+        age, speed, gear = value.get('age_seconds'), value.get('speed_mps'), value.get('gear')
+        if (type(age) not in (int, float) or not math.isfinite(age) or not 0 <= age <= 0.4
+                or type(transport_age) not in (int, float) or not math.isfinite(transport_age)
+                or not 0 <= transport_age <= 0.25 or age + transport_age > 0.4
+                or type(speed) not in (int, float) or not math.isfinite(speed) or speed < 0
+                or gear not in ('P', 'R', 'N', 'D')):
+            return
+        self.bridge_sample = {'schema': 1, 'boot_id': self.boot_id, 'valid': True,
+                              'monotonic': self.clock() - age - transport_age, 'speed_mps': speed, 'gear': gear}
+
+    async def vehicle_bridge(self):
+        if self.config.get('vehicle_bridge', {}).get('enabled') is not True:
+            return
+        if self.config.get('vehicle_adapter_validated') is not True:
+            return
+        try:
+            cfg_path = Path('/var/opt/jltube-player/vehicle/config.json')
+            cfg = trusted_json(cfg_path)
+            if cfg.get('confirmed_remote_getters') is not True:
+                raise ValueError('Vehicle getter semantics not validated')
+            for iface in ('de_bmw_infotainment_vehicle_Vehicle2', 'de_bmw_infrastructure_VehicleInformation'):
+                trusted_json(cfg_path.parent / 'someipInterfaces' / (iface + '.json'), limit=1024 * 1024)
+            self.bridge_process = await asyncio.create_subprocess_exec(
+                '/usr/bin/node', str(INSTALL / 'vehicle_bridge.js'), str(cfg_path),
+                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL, start_new_session=True, limit=4097,
+                env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'NODE_PATH': '/usr/lib/node_modules'})
+            while True:
+                nonce = secrets.token_hex(16)
+                sent = self.clock()
+                self.bridge_process.stdin.write((json.dumps({'nonce': nonce}) + '\n').encode())
+                await asyncio.wait_for(self.bridge_process.stdin.drain(), 0.25)
+                raw = await asyncio.wait_for(self.bridge_process.stdout.readline(), 0.25)
+                if not raw or len(raw) > 4096 or not raw.endswith(b'\n'):
+                    break
+                value = json.loads(raw)
+                if not isinstance(value, dict) or value.get('nonce') != nonce:
+                    break
+                self.ingest_bridge_sample(value, self.clock() - sent)
+                await asyncio.sleep(0.1)
+        except (OSError, ValueError, asyncio.TimeoutError):
+            pass
+        finally:
+            self.bridge_sample = None
+            if self.bridge_process:
+                await self.kill_process(self.bridge_process)
+                self.bridge_process = None
 
     def allowed(self):
         if self.config.get('vehicle_adapter_validated') is not True:
@@ -177,6 +240,9 @@ class Broker:
                 'video': '/dev/shm/mgu-video-jltube' if allowed and self.state == 'playing' else None}
 
     async def stop(self, reason='Stopped'):
+        # Clear the physical frame before any asynchronous process cleanup can stall.
+        if self.frames:
+            self.frames.black()
         task, self.task = self.task, None
         if task and task is not asyncio.current_task():
             task.cancel()
@@ -199,7 +265,22 @@ class Broker:
                 os.killpg(proc.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-        await proc.wait()
+        # asyncio.wait() can otherwise hang after SIGKILL if stdout flow control is paused.
+        if proc.stdout:
+            async def drain():
+                total = 0
+                while True:
+                    data = await proc.stdout.read(16384)
+                    if not data:
+                        return
+                    total += len(data)
+                    if total > 1024 * 1024:
+                        raise ValueError('Child cleanup output limit exceeded')
+            try:
+                await asyncio.wait_for(drain(), 1)
+            except (asyncio.TimeoutError, ValueError):
+                pass
+        await asyncio.wait_for(proc.wait(), 1)
 
     async def spawn(self, *args):
         # Launcher drops root before loading any network-facing executable.
@@ -217,7 +298,7 @@ class Broker:
             proc = await self.spawn(binaries['yt-dlp'], '--ignore-config', '--no-playlist',
                                     '--no-cache-dir', '--no-progress', '--no-warnings',
                                     '--js-runtimes', 'quickjs:' + binaries['qjs'],
-                                    '-f', 'bestvideo[height<=360][vcodec^=avc1]/best[height<=360]',
+                                    '-f', 'bestvideo[height<=360][vcodec^=avc1][ext=mp4][protocol=https]/best[height<=360][vcodec^=avc1][ext=mp4][protocol=https]',
                                     '--get-url', '--', url)
             raw = await asyncio.wait_for(bounded_read(proc.stdout, 8192), timeout=30)
             code = await proc.wait()
@@ -254,13 +335,13 @@ class Broker:
             # Never log URLs, tokens, resolver stdout or subprocess arguments.
             self.reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
         finally:
-            if self.process:
-                await self.kill_process(self.process)
-                self.process = None
             if self.frames:
                 self.frames.close()
                 self.frames = None
             self.state = 'idle'
+            if self.process:
+                proc, self.process = self.process, None
+                await self.kill_process(proc)
 
     async def dispatch(self, message, uid):
         if not isinstance(message, dict):
@@ -341,8 +422,11 @@ async def serve(config):
     server = await asyncio.start_unix_server(client, str(sock), limit=4097)
     os.chown(sock, 0, grp.getgrnam('tm_oap_app').gr_gid)
     os.chmod(sock, 0o660)
-    watchdog = asyncio.create_task(broker.watchdog())
     stop_event = asyncio.Event()
+    watchdog = asyncio.create_task(broker.watchdog())
+    # Any unexpected watchdog exit stops the whole broker rather than leaving an unguarded player.
+    watchdog.add_done_callback(lambda task: stop_event.set())
+    bridge = asyncio.create_task(broker.vehicle_bridge())
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop_event.set)
@@ -351,6 +435,8 @@ async def serve(config):
             await stop_event.wait()
     finally:
         watchdog.cancel()
+        bridge.cancel()
+        await asyncio.gather(watchdog, bridge, return_exceptions=True)
         await broker.stop('Service stopped')
         sock.unlink(missing_ok=True)
 

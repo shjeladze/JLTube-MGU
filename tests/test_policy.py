@@ -183,6 +183,76 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await p.bounded_read(reader, 20)
 
+    async def test_native_bridge_samples_expire_and_include_pipe_delay(self):
+        broker = self.broker()
+        broker.config['vehicle_bridge'] = {'enabled': True}
+        broker.sample_reader = lambda: broker.bridge_sample
+        value = {'schema': 1, 'valid': True, 'age_seconds': 0.1, 'speed_mps': 0, 'gear': 'P'}
+        broker.ingest_bridge_sample(value, 0.1)
+        self.assertTrue(broker.allowed())
+        self.assertAlmostEqual(broker.bridge_sample['monotonic'], 100)
+        broker.clock = lambda: 100.6
+        self.assertFalse(broker.allowed())
+        for bad in [dict(value, age_seconds=0.35), dict(value, gear='NP'),
+                    dict(value, speed_mps=False), dict(value, valid=False), dict(value, age_seconds=float('nan'))]:
+            broker.ingest_bridge_sample(bad, 0.1)
+            self.assertIsNone(broker.bridge_sample)
+        broker.ingest_bridge_sample(value, 0.3)
+        self.assertIsNone(broker.bridge_sample)
+
+    async def test_native_bridge_selection_never_falls_back_to_file(self):
+        broker = p.Broker({'app_uid': 12250, 'vehicle_adapter_validated': True,
+                           'vehicle_bridge': {'enabled': True}}, sample_reader=lambda: sample(),
+                          clock=lambda: 100.2, boot_id='test-boot')
+        self.assertFalse(broker.allowed())
+
+    async def test_youtube_pipeline_writes_frame_and_always_clears_output(self):
+        broker = self.broker()
+        frames = []
+        class FakeFrames:
+            def black(self): frames.append('black')
+            def write(self, value): frames.append(len(value))
+            def close(self): frames.append('closed')
+        class Process:
+            def __init__(self, output):
+                self.stdout = asyncio.StreamReader()
+                self.stdout.feed_data(output); self.stdout.feed_eof()
+            async def wait(self): return 0
+        commands = []
+        async def spawn(*argv):
+            commands.append(argv)
+            output = b'https://r1.example.googlevideo.com/videoplayback\n' if len(commands) == 1 else b'x' * p.FRAME_SIZE
+            proc = Process(output)
+            broker.process = proc
+            return proc
+        killed = []
+        async def kill(proc): killed.append(proc)
+        broker.spawn, broker.kill_process, broker.frame_factory = spawn, kill, FakeFrames
+        await broker.play('https://youtu.be/abcdefghijk', {'yt-dlp': '/yt-dlp', 'ffmpeg': '/ffmpeg', 'qjs': '/qjs'})
+        self.assertEqual(frames, ['black', p.FRAME_SIZE, 'closed'])
+        self.assertIn('-an', commands[1])
+        self.assertIn('-tls_verify', commands[1])
+        self.assertIn('--ignore-config', commands[0])
+        self.assertIsNone(broker.process)
+        self.assertIsNone(broker.frames)
+        self.assertEqual(len(killed), 1)
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux process-group cleanup test')
+    async def test_real_child_process_group_is_terminated(self):
+        broker = self.broker()
+        proc = await asyncio.create_subprocess_exec(sys.executable, '-c',
+            'import os; data=b"x"*65536\nwhile True: os.write(1,data)',
+            stdout=asyncio.subprocess.PIPE, start_new_session=True)
+        try:
+            await asyncio.sleep(0.1)  # allow stdout backpressure to engage before terminating
+            await asyncio.wait_for(broker.kill_process(proc), 2)
+            self.assertIsNotNone(proc.returncode)
+            self.assertNotEqual(proc.returncode, 0)
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+                await proc.wait()
+
 
 if __name__ == '__main__':
     unittest.main()

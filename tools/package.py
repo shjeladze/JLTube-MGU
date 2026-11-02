@@ -106,6 +106,7 @@ def build(out, runtime_dir=None, base_url=None):
     for path in (APP / app['tree']).rglob('*'):
         if path.is_file():
             entries[path.relative_to(APP).as_posix()] = (path.read_bytes(), 0o644)
+    entries[app['tree'] + '/LICENSE'] = ((ROOT / 'LICENSE').read_bytes(), 0o644)
     artifacts = []
     artifacts.append((app['id'], app['version'], 'app', pack(entries), app['requires']))
     manifest = copy.deepcopy(tool)

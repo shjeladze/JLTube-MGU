@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "id": "shjeladze_jltube",
-  "version": "0.3.0",
-  "tree": "shjeladze_jltube@0.3.0",
-  "modules": ["src/app.js", "src/client.js", "src/render.js"],
+  "version": "0.3.1",
+  "tree": "shjeladze_jltube@0.3.1",
+  "modules": ["src/app.js", "src/client.js", "src/render.js", "src/keyboard.js", "src/actions.js"],
   "sdk": ["oap-sdk/src/core/OnlineApp.js", "oap-sdk/src/logging/logging"],
   "internet": true,
   "mguHmi": ["ID7"],
-  "requires": {"jltube-player": "0.3.0", "mgu-render": "0.6.10"}
+  "requires": {"jltube-player": "0.3.1", "mgu-render": "0.6.10"}
 }
 

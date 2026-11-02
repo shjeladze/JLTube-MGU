@@ -18,6 +18,6 @@ for y in range(size):
 png = b'\x89PNG\r\n\x1a\n'
 png += chunk(b'IHDR', struct.pack('>2I5B', size, size, 8, 2, 0, 0, 0))
 png += chunk(b'IDAT', zlib.compress(bytes(rows), 9)) + chunk(b'IEND', b'')
-target = Path(__file__).resolve().parents[1] / 'apps/shjeladze_jltube/shjeladze_jltube@0.3.0/rhmiData/variantGroups/Common/images/jltube.png'
+target = Path(__file__).resolve().parents[1] / 'apps/shjeladze_jltube/shjeladze_jltube@0.3.1/rhmiData/variantGroups/Common/images/jltube.png'
 target.parent.mkdir(parents=True, exist_ok=True)
 target.write_bytes(png)

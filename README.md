@@ -1,7 +1,7 @@
 # JLTube-MGU
 
 Parked-only YouTube player and web portal project for BMW iDrive 7 / MGU.
-**0.3.0 is a development implementation, not a validated in-car player.**
+**0.3.1 is a development implementation, not a validated in-car player.**
 No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binaries are shipped.
 
 ## What works in this implementation
@@ -11,6 +11,9 @@ No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binarie
 * Parked-only policy enforced in the broker, not by a checkbox in the UI. Unknown, stale, invalid, future, nonzero speed, or anything other than gear `P` locks playback. The app cannot send vehicle-state updates or an unlock command.
 * App focus/visibility stop, server-side app-heartbeat timeout, child-process cleanup, black-frame output on stop, bounded resolver output and request sizes, HTTPS-only URLs, exact YouTube hosts, TLS verification, no shell evaluation, no automatic dependency downloads.
 * Offline tests and reproducible Catalog packages with actual sizes, SHA-256 checksums and per-file tool hashes.
+* An in-app URL keyboard that closes/clears when parked-state authorization is lost. Separate website and YouTube-link modes; Stop stays available.
+* An optional root-owned native SOME/IP reader with independent speed/selector expiry, availability-generation checks and challenge/response freshness over private pipes. It stays disabled until its firmware-specific getter semantics are verified.
+* A read-only compatibility-report collector over explicitly named, verified SSH; no VIN, keys or tokens are read.
 
 ## Deliberately unresolved
 
@@ -18,10 +21,10 @@ No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binarie
 
 | Area | Current status |
 | --- | --- |
-| Vehicle safety adapter | Contract and policy implemented; real SOME/IP speed and gear subscription is not implemented. Default locked. Firmware-specific signal identity, units, validity and freshness must be verified. |
+| Vehicle safety adapter | Optional read-only native bridge implemented; disabled and untested on MGU. Requires the unit's local binding/definitions and proof of fresh remote getter semantics. Default locked. See [bridge validation](docs/VEHICLE_BRIDGE.md). |
 | YouTube | Resolver/decoder pipeline implemented, but no compatible Linux x86-64 runtime binaries built, hash-selected or tested on MGU. |
 | Google/general URLs | Portal buttons and URL validation exist. **Full browser engine is not implemented or bundled.** Web requests return a clear unavailable message. |
-| URL entry | An owner-edited `data/portal.json` is supported; an in-car URL speller is not implemented. |
+| URL entry | RHMI character-list keyboard and optional saved `data/portal.json` implemented; actual controller/touch, focus and lockout behavior need HMI validation. |
 | Audio | Explicitly disabled (`-an`). BMW media-session ownership, audio focus, PCM routing, mixer format, resampling, suspend and mute behavior remain unknown. |
 | Renderer | Protocol encoded from the pinned upstream specification; real renderer, foreground gating, sizing, cached-frame clearing and HMI lifecycle need integration tests. |
 | System service | Layout and permissions checked statically. systemd 237, unshare/mount availability, resource limits, UID allocation, recmgr startup/restart and Python libraries need target verification. |
@@ -48,15 +51,17 @@ python tools/package.py --check
 python tools/package.py --out dist
 ```
 
-Tests never connect to a car, network or GitHub. Windows skips the two Linux-only frame-file tests; Linux CI runs them. The packager emits:
+Tests never connect to a car, network or GitHub. Windows skips three Linux-only frame-file/process-group tests; Linux CI runs them. The packager emits:
 
-* `shjeladze_jltube@0.3.0.tgz` — source package, no SDK, `build: "unit"` in the Catalog;
-* `jltube-player@0.3.0.tgz` — tool kit (`component.json`, `files/`, `units/`);
+* `shjeladze_jltube@0.3.1.tgz` — source package, no SDK, `build: "unit"` in the Catalog;
+* `jltube-player@0.3.1.tgz` — tool kit (`component.json`, `files/`, `units/`);
 * schema-2 `catalog.json` and `SHA256SUMS`.
 
 By default the packages contain the locked diagnostic implementation and **no media runtimes**. The packager neither downloads nor executes external binaries. `requires` fields are minimum installed component versions, not exact dependency locks; `dependencies.lock.json` pins the upstream source revisions reviewed for this implementation. Pinning an upstream source revision does not prove ABI compatibility.
 
 ## Media runtime preparation (developer work remains)
+
+The **Build portable media package** GitHub workflow now automates the pinned static-musl FFmpeg/QuickJS/OpenSSL build and the official yt-dlp download, offline decoder checks, corresponding-source archives, and media-inclusive Catalog packaging. See [native/runtime/README.md](native/runtime/README.md). A successful run supplies an Actions artifact; it does not establish real-car or audio compatibility. The manual preparation below remains available for reviewed target builds.
 
 Use the small official yt-dlp **zipimport** `yt-dlp` artifact, not the large PyInstaller `yt-dlp_linux` executable. It includes EJS scripts and is launched with mgu-python 3.12. Do not rely on the head unit's Node 8 for YouTube challenges. The pinned candidate versions are yt-dlp `2026.10.26`, QuickJS `2026-06-04`, and FFmpeg `9.0.2`; their target-compatible build hashes are intentionally unselected until built and reviewed.
 
@@ -76,11 +81,13 @@ Prepare an untracked folder with `yt-dlp`, `ffmpeg`, `qjs`, `LICENSES.txt`, and 
 python tools/package.py --runtime-dir vendor/runtime --out dist
 ```
 
-This verifies supplied binary hashes and native ELF64/x86-64 headers, not the binaries' runtime behavior. Include all license obligations and corresponding source/build instructions when distributing runtimes. Keep binaries out of the repository tree; attach them only inside release assets. Copy the reviewed runtime lock's object into the root configuration's `binaries` field; workers refuse missing or changed hashes.
+This verifies supplied binary hashes and native ELF64/x86-64 headers, not the binaries' runtime behavior. Include all license obligations and corresponding source/build instructions when distributing runtimes. Keep binaries out of the repository tree; attach them only inside release assets. The media-inclusive package carries a root-owned `runtime-lock.json`, which the broker uses automatically when `binaries` is empty; an explicit root configuration can override the lock. Workers refuse missing or changed hashes.
 
 ## Vehicle adapter contract — no manual parked override
 
-Implement a separate, root-owned vehicle-state bridge using the actual car's read-only speed and selector subscriptions. Verify the exact interface, signal scaling, neutral/drive/reverse/Park encodings, invalid values and subscription-loss behavior using the owner's local donor/interface data; never commit BMW SDK or signal catalogs. The OAP app is not trusted to assert that the vehicle is parked.
+The included optional native bridge is documented in [docs/VEHICLE_BRIDGE.md](docs/VEHICLE_BRIDGE.md). It uses only getters, notifications and availability from the head unit's own native binding. Verify the exact interface, signal scaling, neutral/drive/reverse/Park encodings, invalid values, remote getter semantics and provider-loss behavior using the owner's local donor/interface data; never commit BMW SDK or signal catalogs. The OAP app is not trusted to assert that the vehicle is parked.
+
+The external state-file contract below remains available when `vehicle_bridge.enabled` is false. Selecting the native bridge disables file fallback. The native bridge stays off by default, never imports a demo source, and does not start unless `vehicle_adapter_validated` is true.
 
 The bridge must create `/run/jltube-vehicle` as root mode `0755`, and atomically replace its root-owned, non-group/world-writable `state.json` on every **new underlying measurement** (not by refreshing an old cached value):
 
@@ -88,7 +95,7 @@ The bridge must create `/run/jltube-vehicle` as root mode `0755`, and atomically
 {"schema":1,"boot_id":"<current /proc/sys/kernel/random/boot_id>","monotonic":12345.6,"speed_mps":0,"gear":"P","valid":true}
 ```
 
-`monotonic` is Linux CLOCK_MONOTONIC seconds from the same boot, not UTC or the phone's clock. Preserve the oldest of the speed/gear measurement times; require valid fresh measurements for both. Refresh faster than 500 ms; mark invalid or remove the file on disconnect, sleep or signal uncertainty. Reject inconsistent signals. No bridge or fake-state writer is installed by this repository.
+`monotonic` is Linux CLOCK_MONOTONIC seconds from the same boot, not UTC or the phone's clock. Preserve the oldest of the speed/gear measurement times; require valid fresh measurements for both. Refresh faster than 500 ms; mark invalid or remove the file on disconnect, sleep or signal uncertainty. Reject inconsistent signals. No fake-state writer is installed. The optional native bridge uses private pipes instead of this file and includes the full challenge round-trip delay in sample age.
 
 After real signal validation only, create `/var/opt/jltube-player/config.json` as root mode `0600`, in a root-owned, non-group/world-writable directory, using `native/jltube-player/config.example.json`. Set `app_uid` to the UID actually assigned by mgu-deploy status (never guess), set `vehicle_adapter_validated` to true only after proving that adapter, and supply reviewed binary hashes. Restart the broker to load a changed configuration. Do not loosen state-file ownership or remove stale/unknown-state checks. An arbitrary root process can still bypass any software policy; root access is part of the trust boundary.
 
@@ -102,14 +109,16 @@ Once the adapter and runtimes have been validated, place `portal.json` in the in
 {"mode":"youtube","url":"https://www.youtube.com/watch?v=<video-id>"}
 ```
 
-The **Open configured URL / YouTube video** button requests it. `mode: "web"` with a user-entered HTTPS URL is accepted by the portal interface but currently returns **browser unavailable**. Google and YouTube portal buttons likewise explain that a browser backend is missing. The Stop button is available regardless of parked state. Never place credentials in URLs. Only one video plays; no playlist, audio, download UI or background playback is offered.
+The **Open saved URL** button requests it. **Enter website URL** and **Enter YouTube video URL** open the in-app character-list keyboard while the broker reports a valid parked state. Select characters with the iDrive controller/touch, use **Next characters**, **Delete character**, and **Open**. Loss of authorization clears/closes entry; submission is checked again by the broker. This HMI behavior still requires target validation.
+
+`mode: "web"` with a user-entered HTTPS URL is accepted by the portal interface but currently returns **browser unavailable**. Google and YouTube portal buttons likewise explain that a browser backend is missing. The Stop button is available regardless of parked state. Never place credentials in URLs. Only one video plays; no playlist, audio, download UI or background playback is offered.
 
 ## Catalog/Releases publishing
 
 Follow the current [Store publishing guide](https://github.com/robertnisipeanu/mgu-store/blob/7d4d39bf2e449c6134178ac2198465252a526121/docs/PUBLISHING.md). There is intentionally **no `mgu-repo.json`** and no repo-tree build. After validation and an appropriate version bump:
 
 ```sh
-python tools/package.py --runtime-dir vendor/runtime --out dist --base-url https://github.com/shjeladze/JLTube-MGU/releases/download/v0.3.0
+python tools/package.py --runtime-dir vendor/runtime --out dist --base-url https://github.com/shjeladze/JLTube-MGU/releases/download/v0.3.1
 ```
 
 Upload both `.tgz` assets to that version's GitHub Release; upload `catalog.json` to a release with tag/name `catalog`, as the Store requires. The Catalog must use the absolute release-download URLs generated by `--base-url`, not relative URLs for a GitHub Catalog release. For static HTTPS hosting or a USB folder, relative Catalog URLs work. A development package must be labelled experimental; do not present it as validated merely by creating a non-prerelease release.

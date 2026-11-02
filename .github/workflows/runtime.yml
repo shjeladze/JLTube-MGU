@@ -1,0 +1,32 @@
+name: Build portable media package
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native/runtime/**'
+      - '.github/workflows/runtime.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  media:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify source and policy
+        run: python3 tools/self_test.py
+      - name: Build pinned static runtimes
+        run: python3 native/runtime/build.py
+      - name: Pack app and native tool with media runtimes
+        run: python3 tools/package.py --runtime-dir dist/runtime --out dist/catalog-media
+      - name: Preserve runtime binaries, corresponding sources and Catalog
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: JLTube-MGU-0.3.1-media-development
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

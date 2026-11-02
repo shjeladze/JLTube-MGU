@@ -13,5 +13,6 @@
   },
   "runtimeBinaryHashes": "Not selected: add reviewed Linux x86-64 build hashes in runtime-lock.json; no binaries downloaded or bundled by default.",
   "browser": null,
-  "audio": null
+  "audio": null,
+  "ci": {"actions/checkout": {"version": "v7.0.1", "commit": "3d3c42e5aac5ba805825da76410c181273ba90b1", "runtime": "node24"}}
 }
