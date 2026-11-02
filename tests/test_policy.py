@@ -162,11 +162,18 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
             broker.task = asyncio.create_task(fake_playback())
             await asyncio.sleep(0)
             broker.last_client = 0 if not change else 100.2
+            stopped = asyncio.Event()
+            original_stop = broker.stop
+            async def stop_and_report(reason):
+                await original_stop(reason)
+                stopped.set()
+            broker.stop = stop_and_report
             watchdog = asyncio.create_task(broker.watchdog())
             await asyncio.wait_for(cancelled.wait(), 0.5)
+            await asyncio.wait_for(stopped.wait(), 0.5)
             watchdog.cancel()
             with self.assertRaises(asyncio.CancelledError):
-                await watchdog
+                await asyncio.wait_for(watchdog, 1)
             self.assertEqual(broker.state, 'idle')
 
     async def test_resolver_output_cap(self):

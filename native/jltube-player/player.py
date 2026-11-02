@@ -183,7 +183,8 @@ class Broker:
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                if asyncio.current_task().cancelling():
+                    raise
         if self.process:
             await self.kill_process(self.process)
             self.process = None
