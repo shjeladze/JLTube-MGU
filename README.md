@@ -1,5 +1,9 @@
 # JLTube-MGU
 
+## MGU Inspector — on-demand platform inventory
+
+The separate [MGU Inspector tool](native/mgu-inspector/README.md) collects fixed, read-only platform/graphics/browser/audio inventory through an existing verified SSH connection. Build its standalone kit/Catalog with `python tools/package_inspector.py`. It has no daemon, network listener, arbitrary command executor or vehicle writes, and does not automatically connect an assistant to the car. It is a Store Tool, not an Apps-menu tile. This is diagnostic infrastructure; it does not make JLTube or arbitrary apps production-ready.
+
 Parked-only YouTube player and web portal project for compatible BMW iDrive 7 and iDrive 8 MGU OAP environments.
 **0.4.0 is a development implementation, not a validated in-car player.**
 No BMW SDK, car keys, VIN, firmware, prebuilt OAP donor bundle, or media binaries are shipped.

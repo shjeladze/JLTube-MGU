@@ -1,0 +1,9 @@
+{
+  "id": "mgu-inspector", "kind": "tool", "version": "0.1.0",
+  "title": "MGU Inspector (read-only development)",
+  "description": "On-demand platform inventory over an existing verified SSH connection; no remote shell endpoint or vehicle writes",
+  "mguHmi": ["ID7", "ID8"], "optional": true, "uninstallable": true,
+  "requires": {"mgu-python": "1.0.2"},
+  "files": [{"path": "inspector.py", "from": "inspector.py", "mode": "0644"}],
+  "units": [], "enable": [], "restart": [], "internet": false
+}
