@@ -91,7 +91,7 @@ def build():
     ffmpeg = sources['ffmpeg']
     run(['./configure', '--disable-everything', '--disable-autodetect', '--disable-programs', '--enable-ffmpeg',
          '--disable-doc', '--disable-debug', '--disable-asm', '--disable-shared', '--enable-static',
-         '--disable-avdevice', '--disable-postproc', '--disable-swresample', '--enable-version3',
+         '--disable-avdevice', '--disable-swresample', '--enable-version3',
          '--enable-openssl', '--enable-network', '--cc=' + cc, '--ar=' + ar, '--ranlib=' + ranlib,
          '--arch=x86_64', '--target-os=linux', '--pkg-config-flags=--static',
          '--extra-cflags=-I' + str(PREFIX / 'include'),
