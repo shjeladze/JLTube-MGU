@@ -1,0 +1,5 @@
+SPDX-License-Identifier: GPL-3.0-or-later
+JLTube source and metadata are GPL-3.0-or-later. See repository LICENSE.
+Baseline permission/manifest shape adapted from robertnisipeanu/mgu-store,
+Copyright (C) 2026 Robert Nisipeanu and IterioDev (GPL-3.0-or-later).
+No BMW SDK code is included.

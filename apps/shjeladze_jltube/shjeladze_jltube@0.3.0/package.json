@@ -1,0 +1,38 @@
+{
+  "name": "shjeladze_jltube",
+  "version": "0.3.0",
+  "description": "Parked-only JLTube portal (development; vehicle adapters require validation)",
+  "private": false,
+  "main": "javascript/runner.js",
+  "oapAppSettings": {
+    "maxDiskUsage": 26214400,
+    "cpuLimit": 30,
+    "memoryThresholdKB": 131072,
+    "priority": "PRIO_MEDIUM",
+    "visibility": "FOREGROUND",
+    "latencyClass": "FOREGROUND",
+    "loggingId": "JLTB",
+    "userLoginRequired": false,
+    "backgroundPriority": 150,
+    "someipManifest": "manifest.json"
+  },
+  "files": [
+    "config",
+    "rhmiData",
+    "package.json",
+    "permissions.json",
+    "javascript",
+    "manifest.json",
+    "LICENSES.txt"
+  ],
+  "engines": {
+    "node": ">=8.7.0"
+  },
+  "author": "shjeladze",
+  "license": "GPL-3.0-or-later",
+  "mguLocalOnly": true,
+  "mguHmi": [
+    "ID7"
+  ],
+  "mguInternet": true
+}

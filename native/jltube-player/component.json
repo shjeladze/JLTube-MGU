@@ -1,0 +1,15 @@
+{
+  "id": "jltube-player", "kind": "tool", "version": "0.3.0",
+  "title": "JLTube Player (development)",
+  "description": "Parked-only safety broker; requires validated vehicle adapter and separately pinned media runtimes",
+  "mguHmi": ["ID7"], "optional": true, "uninstallable": true,
+  "requires": {"mgu-uplink": "0.7.3", "mgu-python": "1.0.2"},
+  "files": [
+    {"path": "player.py", "from": "player.py", "mode": "0644"},
+    {"path": "run.sh", "from": "run.sh", "mode": "0755"}
+  ],
+  "units": [{"name": "jltube-player.service", "from": "jltube-player.service"}],
+  "enable": [{"unit": "jltube-player.service", "target": "multi-user.target"}],
+  "recmgr": ["jltube-player"], "restart": ["jltube-player.service"],
+  "internet": true, "uids": [3921]
+}

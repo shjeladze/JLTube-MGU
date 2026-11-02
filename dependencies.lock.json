@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-02",
+  "upstream": {
+    "robertnisipeanu/mgu-store": "7d4d39bf2e449c6134178ac2198465252a526121",
+    "cauliflowermossgrape/idrive7-apps": "0a3e7e1231e2c5871572352f99f702fc839b91f8",
+    "IterioDev/car-apps": "2a897bfdec8afe9246904fdebc5e5ae9b9c6fdc6"
+  },
+  "runtimes": {
+    "yt-dlp": {"version": "2026.10.26", "distribution": "official zipimport executable with bundled EJS", "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp"},
+    "ffmpeg": {"version": "9.0.2", "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"},
+    "qjs": {"version": "2026-06-04", "url": "https://bellard.org/quickjs/quickjs-2026-06-04.tar.xz"}
+  },
+  "runtimeBinaryHashes": "Not selected: add reviewed Linux x86-64 build hashes in runtime-lock.json; no binaries downloaded or bundled by default.",
+  "browser": null,
+  "audio": null
+}
