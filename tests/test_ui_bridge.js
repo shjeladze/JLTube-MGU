@@ -4,6 +4,18 @@ const Keyboard = require('../apps/shjeladze_jltube/src/keyboard.js').Keyboard;
 const State = require('../native/jltube-player/vehicle_bridge.js').State;
 const Actions = require('../apps/shjeladze_jltube/src/actions.js').Actions;
 const EventEmitter = require('events');
+const Video = require('../apps/shjeladze_jltube/src/render.js').Video;
+
+const packets = [], video = new Video('shjeladze_jltube');
+video.socket = {write: (packet) => packets.push(packet), destroyed: false};
+video.ready = true; video.area = [0, 100, 640, 360];
+video.show(true, 1); video.show(true, 1);
+assert.strictEqual(packets.filter((packet) => packet.readUInt32LE(0) === 13).length, 1);
+video.show(true, 2); // a new inode at the same path must be registered again
+assert.strictEqual(packets.filter((packet) => packet.readUInt32LE(0) === 13).length, 2);
+assert.strictEqual(packets.filter((packet) => packet.readUInt32LE(0) === 14).length, 1);
+video.show(false);
+assert.strictEqual(packets[packets.length - 1].readUInt32LE(0), 14);
 
 let pressTime = 0;
 const actions = new Actions(() => pressTime), component = new EventEmitter(), presses = [];

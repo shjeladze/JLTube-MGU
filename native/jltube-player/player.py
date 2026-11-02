@@ -187,6 +187,7 @@ class Broker:
         self.dns_updated = 0
         self.control_lock = asyncio.Lock()
         self.search_results = []
+        self.video_generation = 0
         self.bridge_sample = None
         self.bridge_process = None
         if config.get('vehicle_bridge', {}).get('enabled') is True:
@@ -259,6 +260,7 @@ class Broker:
                 'reason': self.reason if allowed else 'Locked: no fresh validated Park + zero-speed signal',
                 'browser': 'unavailable', 'audio': 'unvalidated; disabled',
                 'results': self.search_results if allowed else [],
+                'videoGeneration': self.video_generation if allowed and self.state == 'playing' else None,
                 'video': '/dev/shm/mgu-video-jltube' if allowed and self.state == 'playing' else None}
 
     async def stop(self, reason='Stopped'):
@@ -337,6 +339,7 @@ class Broker:
             if not self.allowed():
                 raise ValueError('Vehicle locked during resolution')
             self.frames = self.frame_factory()
+            self.video_generation += 1
             self.frames.black()
             proc = await self.spawn(binaries['ffmpeg'], '-nostdin', '-hide_banner', '-loglevel', 'error',
                                     '-protocol_whitelist', 'https,tls,tcp', '-rw_timeout', '10000000', '-re',

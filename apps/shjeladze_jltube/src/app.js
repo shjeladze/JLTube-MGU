@@ -158,7 +158,7 @@ class JLTube extends OnlineApp {
                 }
                 this.renderKeyboard();
             }
-            this.gpu.show(!this.typing && r.allowed === true && r.state === 'playing');
+            this.gpu.show(!this.typing && r.allowed === true && r.state === 'playing', r.videoGeneration);
         } catch (err) { this.gpu.close(); this.updateAvailability(false); this.text('Player unavailable — locked'); }
         finally { this.busy = false; }
     }

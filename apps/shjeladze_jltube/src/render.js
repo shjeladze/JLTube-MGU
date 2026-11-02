@@ -31,11 +31,15 @@ class Video {
             }
         });
     }
-    show(on) {
+    show(on, generation) {
         if (!on) { this.send(3, word(0)); this.send(14, word(1)); this.shown = false; return; }
         this.connect();
         if (!this.ready) return;
+        if (this.shown && generation !== this.generation) {
+            this.send(14, word(1)); this.shown = false;
+        }
         if (!this.shown) {
+            this.generation = generation;
             this.send(0x4d520001, word(1));
             const place = Buffer.alloc(28);
             this.area.forEach((v, i) => place.writeInt32LE(v, i * 4));
